@@ -145,7 +145,7 @@ static int write_tiff_rgb_raw(const char *fname, const uint16 *data_tiff, size_t
 
   // Write the image one strip at a time
   for (size_t row = 0; row < ny; row++) {
-    if (TIFFWriteScanline(fp, (void *)&data_tiff[(ny - row - 1) * 3 * nx], row, 0) < 0)
+    if (TIFFWriteScanline(fp, (void *)&data_tiff[row * 3 * nx], row, 0) < 0)
       break;
   }
 
