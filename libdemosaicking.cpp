@@ -109,10 +109,24 @@ void demosaicking_adams(
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       if (input[y * width + x] > 0) {
-        // printf("setting pixel [%d, %d] -> %d\n", x, y, y * width + x);
-        ored[y * width + x] = 65530;
-        ogreen[y * width + x] = 65530;
-        oblue[y * width + x] = 65530;
+        // The raw image has zeroes in all channels outside the sensor area
+        if (y % 2 == 0) {
+          ored[y * width + x] = 500;
+          ogreen[y * width + x] = 65535;
+          oblue[y * width + x] = 500;
+        }
+        else {
+          if ((x / 2 % 2 + y / 2 % 2) % 2 == 0) {
+            ored[y * width + x] = 500;
+            ogreen[y * width + x] = 500;
+            oblue[y * width + x] = 65535;
+          }
+          else {
+            ored[y * width + x] = 65535;
+            ogreen[y * width + x] = 500;
+            oblue[y * width + x] = 500;
+          }
+        }
       }
     }
   }
