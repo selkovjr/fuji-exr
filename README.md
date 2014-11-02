@@ -10,7 +10,7 @@ Fuji EXR filter layout:
 <img src="doc/image/fuji-cfm.png" width="405" height="357" />
 
 
-# ABOUT
+## ABOUT
 
 This software is written by A. Buades <toni.buades@uib.es>
 with contributions from Nicolas Limare.
@@ -25,24 +25,14 @@ They are provided for scientific and education only.
   LGPLv3 license.
 
 
-# OVERVIEW
+## OVERVIEW
 
 This source code provides an implementation of the Self Similar
 demosaicking algorithm, as described in IPOL
   http://www.ipol.im/pub/algo/bcms_self_similarity_driven_demosaicking/
 
-Three programs are provided:
 
-* 'demosaickingIpol' reads a tiff image and a CFA configuration,
-and interpolates missing values of the CFA.
-
-* 'mosaic' creates a mosaicked image from an input image and a given CFA
-configuration
-
-* 'imgdiff' computes the difference image between original and demosaicked images
-
-
-# REQUIREMENTS
+## REQUIREMENTS
 
 The code is written in ANSI C, and should compile on any system with
 an ANSI C compiler.
@@ -52,33 +42,17 @@ compilation and execution.
 
 
 
-# COMPILATION
+## COMPILATION
 
 Simply use the provided makefile, with the command `make`.
 
 
 
-# USAGE
+## USAGE
 
-mosaic input.tiff output.tiff pattern
+```
+./fuji-exr-ssd raw.tiff out.tiff
+```
 
-* `input.tiff`  :  input image
-* `output.tiff` :  output image
-* `pattern`     :  CFA configuration, pattern must be RGGB, GRBG, GBRG or BGGR
-
-
-demosaickingIpol input.tiff output.tiff pattern
-
-* `input.tiff`  :  input image
-* `output.tiff` :  output image
-* `pattern`     :  CFA configuration, pattern must be RGGB, GRBG, GBRG or BGGR
-
-
-imgdiff input1.tiff input2.tiff D output.tiff
-
-* `input1.tiff`  :  input image 1
-* `input2.tiff`  :  input image 2
-* `output.tiff`  :  output image (difference image)
-*  D             :  maximum difference to visualize
-
-
+* `raw.tiff`  :  camera sensor data in 16-bit grayscale
+* `output.tiff` :  demosaicked RGB output

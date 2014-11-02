@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, 2010 IPOL Image Processing On Line 
+ * Copyright 2009, 2010 IPOL Image Processing On Line
  *  <http://www.ipol.im/>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,30 +24,19 @@
  * @author Nicolas Limare <nicolas.limare@cmla.ens-cachan.fr>
  *
  * @todo stdin/stdout handling
- * @todo simple RGB/grayscale version
  * @todo TIFF float version
  *
- * These routines focus on RGBA 8bit TIFF files. These files can be
- * read into or written from unsigned char or float arrays.
+ * These routines read raw sensor data as a 16-bit grayscale file
+ * and write out the demosaicked file as a 16-bit RGB. The I/O data
+ * are internally represented as concatenated float arrays.
  */
 
 #include <stdlib.h>
-
 #include <tiffio.h>
 
-/** internal data type shortcut for unsigned char */
-#define DT_U8  0x01
-/** internal data type shortcut for float */
-#define DT_F32 0x02
 
-
-
-
-
-float *read_tiff_rgba_f32(const char *fname, size_t *nx, size_t *ny);
-unsigned char *read_tiff_rgba_u8(const char *fname, size_t *nx, size_t *ny);
-int write_tiff_rgba_f32(const char *fname, const float *data, size_t nx, size_t ny);
-int write_tiff_rgba_u8(const char *fname, const unsigned char *data, size_t nx, size_t ny);
+float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny);
+int write_tiff_rgb_f32(const char *fname, const float *data, size_t nx, size_t ny);
 
 
 

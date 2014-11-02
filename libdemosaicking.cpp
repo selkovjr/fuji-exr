@@ -46,11 +46,10 @@
 #include "libdemosaicking.h"
 
 
-#define GREENPOSITION 0
-#define REDPOSITION 1
-#define BLUEPOSITION 2
-
-
+#define BLANK 0
+#define GREENPOSITION 1
+#define REDPOSITION 2
+#define BLUEPOSITION 3
 
 
 /**
@@ -61,8 +60,6 @@
  *
  * @author Antoni Buades <toni.buades@uib.es>
  */
-
-
 
 
 /**
@@ -79,115 +76,122 @@
  *
  */
 
+void demosaicking_adams(
+  float threshold,
+  float *input,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height
+) {
 
-
-void demosaicking_adams(float threshold, int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height)
-{
-
-
-
-  wxCopy(ired,ored,width*height);
-  wxCopy(igreen,ogreen,width*height);
-  wxCopy(iblue,oblue,width*height);
-
-
-  // Initializations
-  int bluex = 1 - redx;
-  int bluey = 1 - redy;
-
+  wxCopy(input, ored, width * height);
+  wxCopy(input, ogreen, width * height);
+  wxCopy(input, oblue, width * height);
 
   // CFA Mask of color per pixel
-  unsigned char* mask = (unsigned char *) malloc(width*height*sizeof(unsigned char));
+  unsigned char* mask = (unsigned char *) malloc(width * height * sizeof(unsigned char));
 
-  for(int x=0;x<width;x++)
-    for(int y=0;y<height;y++){
-
-      if (x%2 == redx && y%2 == redy) mask[y*width+x] = REDPOSITION;
-      else  if (x%2 == bluex && y%2 == bluey) mask[y*width+x] = BLUEPOSITION;
-      else  mask[y*width+x] = GREENPOSITION;
-
+  // for (int x = 0; x < width; x++) {
+  //   for (int y = 0; y < height; y++) {
+  //     if (x % 2 == redx && y % 2 == redy) {
+  //       mask[y * width + x] = REDPOSITION;
+  //     }
+  //     else if (x%2 == bluex && y%2 == bluey) {
+  //       mask[y * width + x] = BLUEPOSITION;
+  //     }
+  //     else {
+  //       mask[y * width + x] = GREENPOSITION;
+  //     }
+  //   }
+  // }
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      if (input[y * width + x] > 0) {
+        // printf("setting pixel [%d, %d] -> %d\n", x, y, y * width + x);
+        ored[y * width + x] = 65530;
+        ogreen[y * width + x] = 65530;
+        oblue[y * width + x] = 65530;
+      }
     }
+  }
+
+  // // Interpolate the green channel by bilinear on the boundaries
+  // // make the average of four neighbouring green pixels: Nourth, South, East, West
+  // for (int x = 0; x < width; x++) {
+  //   for (int y = 0; y < height; y++) {
+  //     if ( (mask[y * width + x] != GREENPOSITION) && (x < 3 || y < 3 || x >= width - 3 || y >= height - 3 )) {
+  //       int gn, gs, ge, gw;
+
+  //       if (y > 0)  gn = y-1; else    gn = 1;
+  //       if (y < height-1) gs = y+1;  else  gs = height - 2 ;
+  //       if (x < width-1)  ge = x+1;  else  ge = width-2;
+  //       if (x > 0) gw = x-1;  else  gw = 1;
+
+  //       ogreen[y*width + x] = (ogreen[gn*width + x] +  ogreen[gs*width + x] + ogreen[y*width + gw] +  ogreen[y*width + ge])/ 4.0;
+  //     }
+  //   }
+  // }
 
 
+  // // Interpolate the green by Adams algorithm inside the image
+  // // First interpolate green directionally
+  // for(int x=3;x<width-3;x++)
+  //   for(int y=3;y<height-3;y++)
+  //     if (mask[y*width+ x] != GREENPOSITION ) {
 
 
-  // Interpolate the green channel by bilinear on the boundaries
-  // make the average of four neighbouring green pixels: Nourth, South, East, West
-  for(int x=0;x<width;x++)
-    for(int y=0;y<height;y++)
-      if ( (mask[y*width+ x] != GREENPOSITION) && (x < 3 || y < 3 || x>= width - 3 || y>= height - 3 )) {
+  //       int l = y*width+x;
+  //       int lp1 = (y+1)*width +x;
+  //       int lp2 = (y+2)*width +x;
+  //       int lm1 = (y-1)*width +x;
+  //       int lm2 = (y-2)*width +x;
+
+  //       // Compute vertical and horizontal gradients in the green channel
+  //       float adv = fabsf(ogreen[lp1] - ogreen[lm1]);
+  //       float adh = fabsf(ogreen[l-1] - ogreen[l+1]);
+  //       float dh0, dv0;
+
+  //       // If current pixel is blue, we compute the horizontal and vertical blue second derivatives
+  //       // else is red, we compute the horizontal and vertical red second derivatives
+  //       if (mask[l] == BLUEPOSITION){
+
+  //         dh0 = 2.0 * oblue[l] - oblue[l+2] - oblue[l-2];
+  //         dv0 = 2.0 * oblue[l] - oblue[lp2] - oblue[lm2];
+
+  //       } else {
 
 
-        int gn, gs, ge, gw;
+  //         dh0 = 2.0 * ored[l] - ored[l+2] - ored[l-2];
+  //         dv0 = 2.0 * ored[l] - ored[lp2] - ored[lm2];
 
-        if (y > 0)  gn = y-1; else    gn = 1;
-        if (y < height-1) gs = y+1;  else  gs = height - 2 ;
-        if (x < width-1)  ge = x+1;  else  ge = width-2;
-        if (x > 0) gw = x-1;  else  gw = 1;
+  //       }
 
-        ogreen[y*width + x] = (ogreen[gn*width + x] +  ogreen[gs*width + x] + ogreen[y*width + gw] +  ogreen[y*width + ge])/ 4.0;
+  //       // Add vertical and horizontal differences
+  //       adh = adh + fabsf(dh0);
+  //       adv = adv + fabsf(dv0);
 
-      }
+  //       // If vertical and horizontal differences are similar, compute an isotropic average
+  //       if (fabsf(adv - adh) < threshold)
 
+  //         ogreen[l] = (ogreen[lm1] +  ogreen[lp1] +  ogreen[l-1] + ogreen[l+1]) /4.0 + (dh0 + dv0) / 8.0;
 
+  //       // Else If horizontal differences are smaller, compute horizontal average
+  //       else if (adh < adv )
 
-  // Interpolate the green by Adams algorithm inside the image
-  // First interpolate green directionally
-  for(int x=3;x<width-3;x++)
-    for(int y=3;y<height-3;y++)
-      if (mask[y*width+ x] != GREENPOSITION ) {
+  //         ogreen[l] = (ogreen[l-1] + ogreen[l+1])/2.0 + (dh0)/4.0;
 
+  //       // Else If vertical differences are smaller, compute vertical average
+  //       else if ( adv < adh )
 
-        int l = y*width+x;
-        int lp1 = (y+1)*width +x;
-        int lp2 = (y+2)*width +x;
-        int lm1 = (y-1)*width +x;
-        int lm2 = (y-2)*width +x;
+  //         ogreen[l] = (ogreen[lp1] + ogreen[lm1])/2.0 + (dv0)/4.0;
 
-        // Compute vertical and horizontal gradients in the green channel
-        float adv = fabsf(ogreen[lp1] - ogreen[lm1]);
-        float adh = fabsf(ogreen[l-1] - ogreen[l+1]);
-        float dh0, dv0;
-
-        // If current pixel is blue, we compute the horizontal and vertical blue second derivatives
-        // else is red, we compute the horizontal and vertical red second derivatives
-        if (mask[l] == BLUEPOSITION){
-
-          dh0 = 2.0 * oblue[l] - oblue[l+2] - oblue[l-2];
-          dv0 = 2.0 * oblue[l] - oblue[lp2] - oblue[lm2];
-
-        } else {
-
-
-          dh0 = 2.0 * ored[l] - ored[l+2] - ored[l-2];
-          dv0 = 2.0 * ored[l] - ored[lp2] - ored[lm2];
-
-        }
-
-        // Add vertical and horizontal differences
-        adh = adh + fabsf(dh0);
-        adv = adv + fabsf(dv0);
-
-        // If vertical and horizontal differences are similar, compute an isotropic average
-        if (fabsf(adv - adh) < threshold)
-
-          ogreen[l] = (ogreen[lm1] +  ogreen[lp1] +  ogreen[l-1] + ogreen[l+1]) /4.0 + (dh0 + dv0) / 8.0;
-
-        // Else If horizontal differences are smaller, compute horizontal average
-        else if (adh < adv )
-
-          ogreen[l] = (ogreen[l-1] + ogreen[l+1])/2.0 + (dh0)/4.0;
-
-        // Else If vertical differences are smaller, compute vertical average
-        else if ( adv < adh )
-
-          ogreen[l] = (ogreen[lp1] + ogreen[lm1])/2.0 + (dv0)/4.0;
-
-      }
+  //     }
 
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
-  demosaicking_bilinear_red_blue(redx,redy,ored,ogreen,oblue,width,height);
+  //demosaicking_bilinear_red_blue(redx,redy,ored,ogreen,oblue,width,height);
 
 
   free(mask);
@@ -548,11 +552,6 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
 }
 
 
-
-
-
-
-
 /**
  * \brief Demosaicking chain
  *
@@ -583,13 +582,16 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
 
 
 
-void ssd_demosaicking_chain(int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height)
-{
-
+void ssd_demosaicking_chain(
+  float *input,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height
+) {
 
   ////////////////////////////////////////////// Process
-
-
 
   float h;
   int dbloc = 7;
@@ -599,28 +601,26 @@ void ssd_demosaicking_chain(int redx,int redy,float *ired,float *igreen,float *i
   float threshold = 2.0;
 
 
-  demosaicking_adams(threshold,redx,redy,ired, igreen, iblue, ored, ogreen, oblue, width,height);
+  demosaicking_adams(threshold, input, ored, ogreen, oblue, width, height);
+  printf("demosaicking_adams() -> %f\n", ogreen[8990]);
 
-
-
-  h = 16.0;
-  demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
-  chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
-
-
-
-  h = 4.0;
-  demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
-  chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
-
-
-
-  h = 1.0;
-  demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
-  chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
-
-
-
+//
+//
+//   h = 16.0;
+//   demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+//   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
+//
+//
+//
+//   h = 4.0;
+//   demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+//   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
+//
+//
+//
+//   h = 1.0;
+//   demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+//   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 }
 
 

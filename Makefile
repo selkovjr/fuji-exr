@@ -1,5 +1,5 @@
-OBJ	= io_tiff.o libdemosaicking.o  imgdiff.o libAuxiliary.o demosaickingIpol.o mosaic.o
-BIN = demosaickingIpol imgdiff mosaic
+OBJ	= io_tiff.o libdemosaicking.o  libAuxiliary.o fuji-exr-ssd.o
+BIN = fuji-exr-ssd
 LIBBIN=.
 
 
@@ -33,4 +33,4 @@ $(BIN) : % : %.o  $(LIBMX)
 
 .PHONY : clean
 clean:
-	$(RM) $(OBJ) ; cd $(LIBBIN); rm $(BIN)
+	$(RM) $(OBJ) ; cd $(LIBBIN); rm -f $(BIN)
