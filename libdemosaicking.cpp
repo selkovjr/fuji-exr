@@ -51,6 +51,10 @@
 #define REDPOSITION 2
 #define BLUEPOSITION 3
 
+#define DIAG 1.4142136
+
+static unsigned int origWidth = 0;
+static unsigned int origHeight = 0;
 
 /**
  * @file   libdemosaicking.cpp
@@ -93,61 +97,103 @@ void demosaicking_adams(
   // CFA Mask of color per pixel
   unsigned char* mask = (unsigned char *) malloc(width * height * sizeof(unsigned char));
 
-  // for (int x = 0; x < width; x++) {
-  //   for (int y = 0; y < height; y++) {
-  //     if (x % 2 == redx && y % 2 == redy) {
-  //       mask[y * width + x] = REDPOSITION;
-  //     }
-  //     else if (x%2 == bluex && y%2 == bluey) {
-  //       mask[y * width + x] = BLUEPOSITION;
-  //     }
-  //     else {
-  //       mask[y * width + x] = GREENPOSITION;
-  //     }
-  //   }
-  // }
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       if (input[y * width + x] > 0) {
         // The raw image has zeroes in all channels outside the sensor area
         if (y % 2 == 0) {
-          ored[y * width + x] = 500;
-          ogreen[y * width + x] = 65535;
-          oblue[y * width + x] = 500;
+          mask[y * width + x] = GREENPOSITION;
+          // ored[y * width + x] = 500;
+          // ogreen[y * width + x] = 65535;
+          // oblue[y * width + x] = 500;
         }
         else {
           if ((x / 2 % 2 + y / 2 % 2) % 2 == 0) {
-            ored[y * width + x] = 500;
-            ogreen[y * width + x] = 500;
-            oblue[y * width + x] = 65535;
+            mask[y * width + x] = BLUEPOSITION;
+            // ored[y * width + x] = 500;
+            // ogreen[y * width + x] = 500;
+            // oblue[y * width + x] = 65535;
           }
           else {
-            ored[y * width + x] = 65535;
-            ogreen[y * width + x] = 500;
-            oblue[y * width + x] = 500;
+            mask[y * width + x] = REDPOSITION;
+            // ored[y * width + x] = 65535;
+            // ogreen[y * width + x] = 500;
+            // oblue[y * width + x] = 500;
           }
         }
+      }
+      else {
+        mask[y * width + x] = BLANK;
       }
     }
   }
 
-  // // Interpolate the green channel by bilinear on the boundaries
-  // // make the average of four neighbouring green pixels: Nourth, South, East, West
-  // for (int x = 0; x < width; x++) {
-  //   for (int y = 0; y < height; y++) {
-  //     if ( (mask[y * width + x] != GREENPOSITION) && (x < 3 || y < 3 || x >= width - 3 || y >= height - 3 )) {
-  //       int gn, gs, ge, gw;
+  // Interpolate the green channel by inverse distance weighting on the boundaries.
+  // Make the average of four neighbouring green pixels: Nourth, South, East, West
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+      // if ( (mask[y * width + x] != GREENPOSITION) && (x < 3 || y < 3 || x >= width - 3 || y >= height - 3 )) {
+      //   int gn, gs, ge, gw;
 
-  //       if (y > 0)  gn = y-1; else    gn = 1;
-  //       if (y < height-1) gs = y+1;  else  gs = height - 2 ;
-  //       if (x < width-1)  ge = x+1;  else  ge = width-2;
-  //       if (x > 0) gw = x-1;  else  gw = 1;
+      //   if (y > 0)  gn = y-1; else    gn = 1;
+      //   if (y < height-1) gs = y+1;  else  gs = height - 2 ;
+      //   if (x < width-1)  ge = x+1;  else  ge = width-2;
+      //   if (x > 0) gw = x-1;  else  gw = 1;
 
-  //       ogreen[y*width + x] = (ogreen[gn*width + x] +  ogreen[gs*width + x] + ogreen[y*width + gw] +  ogreen[y*width + ge])/ 4.0;
-  //     }
-  //   }
-  // }
+      //   ogreen[y*width + x] = (ogreen[gn*width + x] +  ogreen[gs*width + x] + ogreen[y*width + gw] +  ogreen[y*width + ge])/ 4.0;
+      // }
 
+      if ( mask[y * width + x] != GREENPOSITION && mask[y * width + x] != BLANK) {
+        float avg = 0;
+        float weight = 0;
+        int
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
+          ne = (y - 1) * width + x + 1,
+          se = (y + 1) * width + x + 1,
+          sw = (y + 1) * width + x - 1,
+          nw = (y - 1) * width + x - 1;
+
+        if (x == 0) { // West corner red
+          origWidth = y + 1;
+          ogreen[y * width + x] = (ogreen[ne] + ogreen[se]) / 2;
+        }
+        else if (x == width - 1) { // East corner blue
+          origHeight = y + 1;
+          ogreen[y * width + x] = (ogreen[nw] + ogreen[sw]) / 2;
+        }
+        else {
+          if (mask[nw] != BLANK) {
+            avg += ogreen[nw] / DIAG;
+            weight += 1 / DIAG;
+          }
+          if (mask[n] != BLANK) {
+            avg += ogreen[n];
+            weight += 1;
+          }
+          if (mask[ne] != BLANK) {
+            avg += ogreen[ne] / DIAG;
+            weight += 1 / DIAG;
+          }
+
+          if (mask[sw] != BLANK) {
+            avg += ogreen[sw] / DIAG;
+            weight += 1 / DIAG;
+          }
+          if (mask[s] != BLANK) {
+            avg += ogreen[s];
+            weight += 1;
+          }
+          if (mask[se] != BLANK) {
+            avg += ogreen[se] / DIAG;
+            weight += 1 / DIAG;
+          }
+          ogreen[y * width + x] = avg / weight;
+        }
+      }
+    }
+  }
+  printf("original: %dx%d\n", origWidth, origHeight);
 
   // // Interpolate the green by Adams algorithm inside the image
   // // First interpolate green directionally
