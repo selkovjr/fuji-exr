@@ -35,11 +35,12 @@
  *
  * @return the data array pointer, NULL if an error occured
  */
-float *read_tiff_gray16_f32(const char *fname, size_t * nx, size_t * ny)
+float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **description)
 {
   TIFF *fp = NULL;
   uint32 width = 0,
          height = 0;
+  char *c = NULL;
   uint32 config;
   uint32 row;
   uint32 i;
@@ -59,6 +60,7 @@ float *read_tiff_gray16_f32(const char *fname, size_t * nx, size_t * ny)
   if (
     1 != TIFFGetField(fp, TIFFTAG_IMAGEWIDTH, &width) ||
     1 != TIFFGetField(fp, TIFFTAG_IMAGELENGTH, &height) ||
+    1 != TIFFGetField(fp, TIFFTAG_IMAGEDESCRIPTION, &c) ||
     1 != TIFFGetField(fp, TIFFTAG_PLANARCONFIG, &config) ||
     NULL == (buf = _TIFFmalloc(TIFFScanlineSize(fp))) ||
     NULL == (data = (float *) malloc(3 * width * height * sizeof(float)))
@@ -71,6 +73,8 @@ float *read_tiff_gray16_f32(const char *fname, size_t * nx, size_t * ny)
     *nx = (size_t) width;
   if (NULL != ny)
     *ny = (size_t) height;
+  if (NULL != description)
+    *description = strdup(c);
 
   TIFFGetField(fp, TIFFTAG_SAMPLESPERPIXEL, &nsamples);
   printf("samples: %d, width: %d, height: %d\n", nsamples, width, height);

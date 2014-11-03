@@ -35,7 +35,7 @@
 #include <tiffio.h>
 
 
-float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny);
+float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **description);
 int write_tiff_rgb_f32(const char *fname, const float *data, size_t nx, size_t ny);
 
 

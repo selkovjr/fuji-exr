@@ -53,9 +53,6 @@
 
 #define DIAG 1.4142136
 
-static unsigned int origWidth = 0;
-static unsigned int origHeight = 0;
-
 /**
  * @file   libdemosaicking.cpp
  * @brief  Demosaicking functions: HAmilton-Adams algorithm, NLmeans based demosaicking, Chromatic components filtering
@@ -87,7 +84,9 @@ void demosaicking_adams(
   float *ogreen,
   float *oblue,
   int width,
-  int height
+  int height,
+  int origWidth,
+  int origHeight
 ) {
 
   wxCopy(input, ored, width * height);
@@ -99,7 +98,12 @@ void demosaicking_adams(
 
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
-      if (input[y * width + x] > 0) {
+      if (
+        x + y >= origWidth - 1 &&                   // NW boundary
+        y > x - origWidth - 1 &&                    // NE boundary
+        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
+        x > y - origWidth                           // SW boundary
+      ) {
         // The raw image has zeroes in all channels outside the sensor area
         if (y % 2 == 0) {
           mask[y * width + x] = GREENPOSITION;
@@ -128,22 +132,23 @@ void demosaicking_adams(
     }
   }
 
-  // Interpolate the green channel by inverse distance weighting on the boundaries.
-  // Make the average of four neighbouring green pixels: Nourth, South, East, West
+  // Interpolate the green channel by inverse distance weighting in the
+  // 4-pixel-wide boundary.
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
-      // if ( (mask[y * width + x] != GREENPOSITION) && (x < 3 || y < 3 || x >= width - 3 || y >= height - 3 )) {
-      //   int gn, gs, ge, gw;
-
-      //   if (y > 0)  gn = y-1; else    gn = 1;
-      //   if (y < height-1) gs = y+1;  else  gs = height - 2 ;
-      //   if (x < width-1)  ge = x+1;  else  ge = width-2;
-      //   if (x > 0) gw = x-1;  else  gw = 1;
-
-      //   ogreen[y*width + x] = (ogreen[gn*width + x] +  ogreen[gs*width + x] + ogreen[y*width + gw] +  ogreen[y*width + ge])/ 4.0;
-      // }
-
-      if ( mask[y * width + x] != GREENPOSITION && mask[y * width + x] != BLANK) {
+      if (
+        (
+         mask[y * width + x] == BLUEPOSITION ||
+         mask[y * width + x] == REDPOSITION
+        )
+        &&
+        (
+         x + y < origWidth + 3 ||                    // NW boundary
+         x >= y + origWidth - 3 ||                   // NE boundary
+         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
+         y >= x + origWidth - 4                      // SW boundary
+        )
+      ) {
         float avg = 0;
         float weight = 0;
         int
@@ -155,11 +160,9 @@ void demosaicking_adams(
           nw = (y - 1) * width + x - 1;
 
         if (x == 0) { // West corner red
-          origWidth = y + 1;
           ogreen[y * width + x] = (ogreen[ne] + ogreen[se]) / 2;
         }
         else if (x == width - 1) { // East corner blue
-          origHeight = y + 1;
           ogreen[y * width + x] = (ogreen[nw] + ogreen[sw]) / 2;
         }
         else {
@@ -193,7 +196,6 @@ void demosaicking_adams(
       }
     }
   }
-  printf("original: %dx%d\n", origWidth, origHeight);
 
   // // Interpolate the green by Adams algorithm inside the image
   // // First interpolate green directionally
@@ -648,7 +650,9 @@ void ssd_demosaicking_chain(
   float *ogreen,
   float *oblue,
   int width,
-  int height
+  int height,
+  int origWidth,
+  int origHeight
 ) {
 
   ////////////////////////////////////////////// Process
@@ -661,7 +665,7 @@ void ssd_demosaicking_chain(
   float threshold = 2.0;
 
 
-  demosaicking_adams(threshold, input, ored, ogreen, oblue, width, height);
+  demosaicking_adams(threshold, input, ored, ogreen, oblue, width, height, origWidth, origHeight);
   printf("demosaicking_adams() -> %f\n", ogreen[8990]);
 
 //

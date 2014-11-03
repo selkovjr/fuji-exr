@@ -3,6 +3,7 @@ from ij.process import ShortProcessor
 from ij.io import FileSaver
 from array import zeros  
 import os
+import subprocess
 
 basename = '141006_163724'
 frame = []
@@ -32,6 +33,8 @@ bayer = ImagePlus("Sensor", ip)
 
 fs = FileSaver(bayer)  
 fs.saveAsTiff(os.path.dirname(filename) + '/' + 'raw.tiff')
+
+subprocess.call(['/opt/local/bin/tiffset', '-s', '270', 'width = ' + str(width) + ', height = ' + str(height), os.environ['HOME'] + '/' + 'raw.tiff'])
 
 bayer.show()
  

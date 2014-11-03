@@ -81,7 +81,17 @@
  */
 
 
-void demosaicking_adams(float threshold, float *input, float *ored, float *ogreen, float *oblue, int width, int height);
+void demosaicking_adams(
+  float threshold,
+  float *input,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+);
 
 
 
@@ -171,10 +181,15 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
  */
 
 
-void ssd_demosaicking_chain(float *input, float *ored, float *ogreen, float *oblue, int width, int height);
-
-
-
-
+void ssd_demosaicking_chain(
+  float *input,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+);
 
 #endif

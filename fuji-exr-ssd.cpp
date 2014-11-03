@@ -53,7 +53,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include "libdemosaicking.h"
 #include "io_tiff.h"
 #include "tiffio.h"
@@ -70,6 +69,9 @@
 
 int main(int argc, char **argv) {
   size_t nx = 0, ny = 0;
+  char *description;
+  int origWidth;
+  int origHeight;
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
 
@@ -87,10 +89,14 @@ int main(int argc, char **argv) {
   }
 
   /* TIFF 16-bit grayscale -> float input */
-  if (NULL == (data_in = read_tiff_gray16_f32(argv[1], &nx, &ny))) {
+  if (NULL == (data_in = read_tiff_gray16_f32(argv[1], &nx, &ny, &description))) {
     fprintf(stderr, "error while reading from %s\n", argv[1]);
-    // return EXIT_FAILURE;
-    return 0;
+    return EXIT_FAILURE;
+  }
+
+  if (sscanf(description, "width = %d, height = %d", &origWidth, &origHeight) != 2) {
+    fprintf(stderr, "image description (%s) does not contain a size expression (width = nnnn, height = nnnn)\n", description);
+    return EXIT_FAILURE;
   }
 
   if (NULL == (data_out = (float *) malloc(sizeof(float) * nx * ny * 3))) {
@@ -107,7 +113,9 @@ int main(int argc, char **argv) {
     data_out + nx * ny,
     data_out + 2 * nx * ny,
     (int) nx,
-    (int) ny
+    (int) ny,
+    origWidth,
+    origHeight
   );
 
   printf("demosaicking_chain() -> %f\n", data_out[8990]);
