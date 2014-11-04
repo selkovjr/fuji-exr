@@ -143,13 +143,13 @@ void demosaicking_adams(
          mask[y * width + x] == BLUEPOSITION ||
          mask[y * width + x] == REDPOSITION
         )
-        // &&
-        // (
-        //  x + y < origWidth + 3 ||                    // NW boundary
-        //  x >= y + origWidth - 3 ||                   // NE boundary
-        //  x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
-        //  y >= x + origWidth - 4                      // SW boundary
-        // )
+        &&
+        (
+         x + y < origWidth + 3 ||                    // NW boundary
+         x >= y + origWidth - 3 ||                   // NE boundary
+         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
+         y >= x + origWidth - 4                      // SW boundary
+        )
       ) {
         float avg = 0;
         float weight = 0;
@@ -199,7 +199,6 @@ void demosaicking_adams(
     }
   }
 
-#ifdef OK
   // Interpolate the green by Adams algorithm inside the image.
   // First interpolate green directionally.
   for (int y = 0; y < height; y++) {
@@ -213,89 +212,31 @@ void demosaicking_adams(
         x > y - origWidth + 4                          // SW boundary
       ) {
         int
-          n = (y - 1) * width + x,         // lm1
-          s = (y + 1) * width + x,         // lp1
-          e = y * width + x + 1,
-          w = y * width + x - 1,
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
           ne = (y - 1) * width + x + 1,
           se = (y + 1) * width + x + 1,
           sw = (y + 1) * width + x - 1,
           nw = (y - 1) * width + x - 1,
-          n2 = (y - 2) * width + x,        // lm2
-          s2 = (y + 2) * width + x,        // lp2
           ne2 = (y - 2) * width + x + 2,
           se2 = (y + 2) * width + x + 2,
           sw2 = (y + 2) * width + x - 2,
           nw2 = (y - 2) * width + x - 2;
 
-        // Compute vertical, horizontal, and diagonal gradients in the green channel.
+        // Compute diagonal gradients in the green channel.
         //
-        // Horizontal: interpolate the greens
-        //
-        // G   G
-        // |-*-|
-        // G   G
-        //
-        float gh = fabsf((ogreen[nw] + ogreen[sw]) / 2 - (ogreen[ne] + ogreen[se]) / 2);
-
-        // Vertical
-        float gv = fabsf(ogreen[s] - ogreen[n]);
-
         // NW - SE
         float gnw = fabsf(ogreen[nw] - ogreen[se]) / DIAG; // diagonal distance is longer
 
         // NE - SW
         float gne = fabsf(ogreen[ne] - ogreen[sw]) / DIAG;
 
-        float d2h, d2v, d2nw, d2ne;
-        float min, max;
+        float d2nw, d2ne;
 
-        // Compute vertical, horizontal, and diagonal second derivatives in the same channel as
-        // current pixel.
+        // Compute diagonal second derivatives in the same channel as current
+        // pixel.
+
         if (mask[p] == REDPOSITION) {
-          // Horizontal: interpolate green and red values
-          //
-          //    Even       Odd
-          //
-          // . R . . .   . . . R .
-          // . | . . .   . . . | .
-          // . + * R .   . R * + .
-          // . | . . .   . . . | .
-          // . R . . .   . . . R .
-          //
-          if (x % 2 == 0) {
-            d2h = 2.0 * ored[p] - (ored[nw2 + 1] + ored[sw2 + 1] / 2.0) - ored[e];
-          }
-          else {
-            d2h = 2.0 * ored[p] - ored[w] - (ored[ne2 - 1] + ored[se2 - 1]) / 2.0;
-          }
-
-          // Vertical: interpolate green and red values
-          //
-          //    Even       Odd
-          //
-          // . R-+---R   R---+-R .   <- unequal distance, interpolate with IDW
-          // . . | . .   . . | . .
-          // . . * . .   . . * . .
-          // . . | . .   . . | . .
-          // . R-+---R   R---+-R .
-          //
-          if (x % 2 == 0) {
-            d2v = (
-              2.0 * ored[p] -
-              (ored[nw2 + 1] + ored[ne2] / 2.0) / 1.5 -
-              (ored[sw2 + 1] + ored[se2] / 2.0) / 1.5
-            ) / 4.0; // step = 2
-          }
-          else {
-            d2v = (
-              2.0 * ored[p] -
-              (ored[nw2] / 2.0 + ored[ne2 - 1]) / 1.5 -
-              (ored[sw2] / 2.0 + ored[se2 - 1]) / 1.5
-            ) / 4.0;
-          }
-
-          // Diagonal
           //
           //     NW         NE
           //
@@ -309,49 +250,6 @@ void demosaicking_adams(
           d2ne = (2.0 * ored[p] - ored[ne2] - ored[sw2]) / 8.0;
         }
         else { // BLUEPOSITION
-          // Horizontal: interpolate green and red values
-          //
-          //    Even       Odd
-          //
-          // . R . . .   . . . R .
-          // . | . . .   . . . | .
-          // . + * R .   . R * + .
-          // . | . . .   . . . | .
-          // . R . . .   . . . R .
-          //
-          if (x % 2 == 0) {
-            d2h = 2.0 * oblue[p] - (oblue[nw2 + 1] + oblue[sw2 + 1] / 2.0) - oblue[e];
-          }
-          else {
-            d2h = 2.0 * oblue[p] - oblue[w] - (oblue[ne2 - 1] + oblue[se2 - 1]) / 2.0;
-          }
-
-          // Vertical: interpolate green and red values
-          //
-          //    Even       Odd
-          //
-          // . R-+---R   R---+-R .   <- unequal distance, interpolate with IDW
-          // . . | . .   . . | . .
-          // . . * . .   . . * . .
-          // . . | . .   . . | . .
-          // . R-+---R   R---+-R .
-          //
-          if (x % 2 == 0) {
-            d2v = (
-              2.0 * oblue[p] -
-              (oblue[nw2 + 1] + oblue[ne2] / 2.0) / 1.5 -
-              (oblue[sw2 + 1] + oblue[se2] / 2.0) / 1.5
-            ) / 4.0; // step = 2
-          }
-          else {
-            d2v = (
-              2.0 * oblue[p] -
-              (oblue[nw2] / 2.0 + oblue[ne2 - 1]) / 1.5 -
-              (oblue[sw2] / 2.0 + oblue[se2 - 1]) / 1.5
-            ) / 4.0;
-          }
-
-          // Diagonal
           //
           //     NW         NE
           //
@@ -361,106 +259,77 @@ void demosaicking_adams(
           // . . . . .   . . . . .
           // . . . . R   R . . . .
           //
-          d2nw = (2.0 * oblue[p] - oblue[nw2] - oblue[se2]) / 8.0; // step = 2 * DIAG
+          d2nw = (2.0 * oblue[p] - oblue[nw2] - oblue[se2]) / 8.0;
           d2ne = (2.0 * oblue[p] - oblue[ne2] - oblue[sw2]) / 8.0;
         }
 
         // Add second differences to gradients
-        gh += fabsf(d2h);
-        gv += fabsf(d2v);
         gnw += fabsf(d2nw);
         gne += fabsf(d2ne);
-
-        min = std::min( std::min(gh, gv), std::min(gnw, gne) );
-        max = std::max( std::max(gh, gv), std::max(gnw, gne) );
 
 #ifdef DEBUG_GREEN1
         if (mask[p] == REDPOSITION) {
           printf("\x1b[31m--------------------------------------------------------------\x1b[0m\n");
           printf("\x1b[31mred\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
           if (x % 2 == 0) {
-            printf("\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "    \x1b[34m%4.0f\x1b[1m\x1b[31m%4.0f\x1b[0m\x1b[31m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[31m%5.0f%5.0f\x1b[34m%5.0f%5.0f\x1b[31m%5.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "     \x1b[34m%5.0f\x1b[1m\x1b[31m%5.0f\x1b[0m\x1b[31m%5.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[31m%5.0f%5.0f\x1b[34m%5.0f%5.0f\x1b[31m%5.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
           }
           else {
-            printf("\x1b[31m%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "    \x1b[31m%4.0f\x1b[1m%4.0f\x1b[0m\x1b[34m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[31m%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[31m%5.0f\x1b[34m%5.0f%5.0f\x1b[31m%5.0f%5.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "     \x1b[31m%5.0f\x1b[1m%5.0f\x1b[0m\x1b[34m%5.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[31m%5.0f\x1b[34m%5.0f%5.0f\x1b[31m%5.0f%5.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
           }
         }
         else { // blue
           printf("\x1b[34m--------------------------------------------------------------\x1b[0m\n");
           printf("\x1b[34mblue\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
           if (x % 2 == 0) {
-            printf("\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "    \x1b[31m%4.0f\x1b[1m\x1b[34m%4.0f\x1b[0m\x1b[34m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[34m%5.0f%5.0f\x1b[31m%5.0f%5.0f\x1b[34m%5.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "     \x1b[31m%5.0f\x1b[1m\x1b[34m%5.0f\x1b[0m\x1b[34m%5.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[34m%5.0f%5.0f\x1b[31m%5.0f%5.0f\x1b[34m%5.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
           }
           else {
-            printf("\x1b[34m%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "    \x1b[34m%4.0f\x1b[1m%4.0f\x1b[0m\x1b[31m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[34m%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[34m%5.0f\x1b[31m%5.0f%5.0f\x1b[34m%5.0f%5.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "     \x1b[34m%5.0f\x1b[1m%5.0f\x1b[0m\x1b[31m%5.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "     \x1b[32m%5.0f%5.0f%5.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[34m%5.0f\x1b[31m%5.0f%5.0f\x1b[34m%5.0f%5.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
           }
         }
 #endif
 
         // If all differences are similar, compute an isotropic average.
-        // if (max - min < threshold) {
-        if (1) {
+        if (fabsf(gnw - gne) < threshold) {
 #ifdef DEBUG_GREEN1
-          printf(  "g # (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+          printf(  "g # (\\ %f, / %f)\n", gnw, gne);
 #endif
-          //ogreen[p] =
-          //  (ogreen[nw] +  ogreen[n] + ogreen[ne] + ogreen[se] + ogreen[s] + ogreen[sw]) / 6.0 +
-          //  (d2h + d2v + d2nw + d2ne) / 4.0;
-          ogreen[p] = (ogreen[nw] + ogreen[n] + ogreen[ne] + ogreen[se] + ogreen[s] + ogreen[sw]) / 6.0;
+          ogreen[p] =
+            (ogreen[nw] +  ogreen[n] + ogreen[ne] + ogreen[se] + ogreen[s] + ogreen[sw]) / 6.0 +
+            (d2nw + d2ne) / 2.0;
         }
         else {
-          if (min == gh) {
-            // Compute horizontal average (interpolated for green, so almost same as isotropic).
-            //
-            // G . G
-            // |-*-|
-            // G . G
-            //
-#ifdef DEBUG_GREEN1
-            printf(  "g - (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
-#endif
-            // ogreen[p] = (ogreen[nw] + ogreen[sw] + (ogreen[ne] + ogreen[se]) / 4.0) + d2h;
-            ogreen[p] = (ogreen[nw] + ogreen[sw] + (ogreen[ne] + ogreen[se]) / 4.0);
-          }
-          if (min == gv) {
-            // Vertical average
-#ifdef DEBUG_GREEN1
-            printf(  "g | (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
-#endif
-            // ogreen[p] = (ogreen[s] + ogreen[n])/2.0 + d2v;
-            ogreen[p] = (ogreen[s] + ogreen[n])/2.0;
-          }
-          if (min == gnw) {
+          if (gnw < gne) {
             // NW average
 #ifdef DEBUG_GREEN1
-            printf(  "g \\ (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+            printf(  "g \\ (\\ %f, / %f)\n", gnw, gne);
 #endif
-            // ogreen[p] = (ogreen[nw] + ogreen[se])/2.0 + d2nw;
-            ogreen[p] = (ogreen[nw] + ogreen[se])/2.0;
+            ogreen[p] = (ogreen[nw] + ogreen[se])/2.0 + d2nw;
           }
-          if (min == gne) {
+          // if (min == gne) {
+          else {
             // NE
 #ifdef DEBUG_GREEN1
-            printf(  "g / (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+            printf(  "g / (\\ %f, / %f)\n", gnw, gne);
 #endif
-            // ogreen[p] = (ogreen[ne] + ogreen[sw])/2.0 + d2ne;
-            ogreen[p] = (ogreen[ne] + ogreen[sw])/2.0;
+            ogreen[p] = (ogreen[ne] + ogreen[sw])/2.0 + d2ne;
           }
         }
 #ifdef DEBUG_GREEN1
@@ -469,7 +338,6 @@ void demosaicking_adams(
       }
     }
   }
-#endif
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
   //demosaicking_bilinear_red_blue(redx,redy,ored,ogreen,oblue,width,height);
