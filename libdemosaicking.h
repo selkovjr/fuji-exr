@@ -79,8 +79,6 @@
  * @param[in]  width, height size of the image
  *
  */
-
-
 void demosaicking_adams(
   float threshold,
   float *input,
@@ -94,7 +92,6 @@ void demosaicking_adams(
 );
 
 
-
 /**
  * \brief  Classical bilinear interpolation of red and blue differences with the green channel
  *
@@ -105,9 +102,15 @@ void demosaicking_adams(
  * @param[in]  width, height size of the image
  *
  */
-
-void demosaicking_bilinear_red_blue(int redx,int redy,float *ored,float *ogreen,float *oblue,int width,int height);
-
+void demosaicking_bilinear_red_blue(
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+);
 
 
 

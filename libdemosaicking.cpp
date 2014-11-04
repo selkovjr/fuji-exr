@@ -42,7 +42,7 @@
 *
 */
 
-
+#include <algorithm>
 #include "libdemosaicking.h"
 
 
@@ -52,6 +52,8 @@
 #define BLUEPOSITION 3
 
 #define DIAG 1.4142136
+
+#undef DEBUG_GREEN1
 
 /**
  * @file   libdemosaicking.cpp
@@ -132,8 +134,8 @@ void demosaicking_adams(
     }
   }
 
-  // Interpolate the green channel by inverse distance weighting in the
-  // 4-pixel-wide boundary.
+  // Interpolate the green channel in the 4-pixel-wide boundary by inverse
+  // distance weighting.
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       if (
@@ -141,13 +143,13 @@ void demosaicking_adams(
          mask[y * width + x] == BLUEPOSITION ||
          mask[y * width + x] == REDPOSITION
         )
-        &&
-        (
-         x + y < origWidth + 3 ||                    // NW boundary
-         x >= y + origWidth - 3 ||                   // NE boundary
-         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
-         y >= x + origWidth - 4                      // SW boundary
-        )
+        // &&
+        // (
+        //  x + y < origWidth + 3 ||                    // NW boundary
+        //  x >= y + origWidth - 3 ||                   // NE boundary
+        //  x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
+        //  y >= x + origWidth - 4                      // SW boundary
+        // )
       ) {
         float avg = 0;
         float weight = 0;
@@ -197,60 +199,277 @@ void demosaicking_adams(
     }
   }
 
-  // // Interpolate the green by Adams algorithm inside the image
-  // // First interpolate green directionally
-  // for(int x=3;x<width-3;x++)
-  //   for(int y=3;y<height-3;y++)
-  //     if (mask[y*width+ x] != GREENPOSITION ) {
+#ifdef OK
+  // Interpolate the green by Adams algorithm inside the image.
+  // First interpolate green directionally.
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      if (
+        mask[p] != GREENPOSITION &&
+        x + y >= origWidth - 1 + 4 &&                   // NW boundary
+        y > x - origWidth - 1 + 4 &&                    // NE boundary
+        x + y < origWidth + 2 * origHeight - 1 - 4 &&   // SE boundary
+        x > y - origWidth + 4                          // SW boundary
+      ) {
+        int
+          n = (y - 1) * width + x,         // lm1
+          s = (y + 1) * width + x,         // lp1
+          e = y * width + x + 1,
+          w = y * width + x - 1,
+          ne = (y - 1) * width + x + 1,
+          se = (y + 1) * width + x + 1,
+          sw = (y + 1) * width + x - 1,
+          nw = (y - 1) * width + x - 1,
+          n2 = (y - 2) * width + x,        // lm2
+          s2 = (y + 2) * width + x,        // lp2
+          ne2 = (y - 2) * width + x + 2,
+          se2 = (y + 2) * width + x + 2,
+          sw2 = (y + 2) * width + x - 2,
+          nw2 = (y - 2) * width + x - 2;
 
+        // Compute vertical, horizontal, and diagonal gradients in the green channel.
+        //
+        // Horizontal: interpolate the greens
+        //
+        // G   G
+        // |-*-|
+        // G   G
+        //
+        float gh = fabsf((ogreen[nw] + ogreen[sw]) / 2 - (ogreen[ne] + ogreen[se]) / 2);
 
-  //       int l = y*width+x;
-  //       int lp1 = (y+1)*width +x;
-  //       int lp2 = (y+2)*width +x;
-  //       int lm1 = (y-1)*width +x;
-  //       int lm2 = (y-2)*width +x;
+        // Vertical
+        float gv = fabsf(ogreen[s] - ogreen[n]);
 
-  //       // Compute vertical and horizontal gradients in the green channel
-  //       float adv = fabsf(ogreen[lp1] - ogreen[lm1]);
-  //       float adh = fabsf(ogreen[l-1] - ogreen[l+1]);
-  //       float dh0, dv0;
+        // NW - SE
+        float gnw = fabsf(ogreen[nw] - ogreen[se]) / DIAG; // diagonal distance is longer
 
-  //       // If current pixel is blue, we compute the horizontal and vertical blue second derivatives
-  //       // else is red, we compute the horizontal and vertical red second derivatives
-  //       if (mask[l] == BLUEPOSITION){
+        // NE - SW
+        float gne = fabsf(ogreen[ne] - ogreen[sw]) / DIAG;
 
-  //         dh0 = 2.0 * oblue[l] - oblue[l+2] - oblue[l-2];
-  //         dv0 = 2.0 * oblue[l] - oblue[lp2] - oblue[lm2];
+        float d2h, d2v, d2nw, d2ne;
+        float min, max;
 
-  //       } else {
+        // Compute vertical, horizontal, and diagonal second derivatives in the same channel as
+        // current pixel.
+        if (mask[p] == REDPOSITION) {
+          // Horizontal: interpolate green and red values
+          //
+          //    Even       Odd
+          //
+          // . R . . .   . . . R .
+          // . | . . .   . . . | .
+          // . + * R .   . R * + .
+          // . | . . .   . . . | .
+          // . R . . .   . . . R .
+          //
+          if (x % 2 == 0) {
+            d2h = 2.0 * ored[p] - (ored[nw2 + 1] + ored[sw2 + 1] / 2.0) - ored[e];
+          }
+          else {
+            d2h = 2.0 * ored[p] - ored[w] - (ored[ne2 - 1] + ored[se2 - 1]) / 2.0;
+          }
 
+          // Vertical: interpolate green and red values
+          //
+          //    Even       Odd
+          //
+          // . R-+---R   R---+-R .   <- unequal distance, interpolate with IDW
+          // . . | . .   . . | . .
+          // . . * . .   . . * . .
+          // . . | . .   . . | . .
+          // . R-+---R   R---+-R .
+          //
+          if (x % 2 == 0) {
+            d2v = (
+              2.0 * ored[p] -
+              (ored[nw2 + 1] + ored[ne2] / 2.0) / 1.5 -
+              (ored[sw2 + 1] + ored[se2] / 2.0) / 1.5
+            ) / 4.0; // step = 2
+          }
+          else {
+            d2v = (
+              2.0 * ored[p] -
+              (ored[nw2] / 2.0 + ored[ne2 - 1]) / 1.5 -
+              (ored[sw2] / 2.0 + ored[se2 - 1]) / 1.5
+            ) / 4.0;
+          }
 
-  //         dh0 = 2.0 * ored[l] - ored[l+2] - ored[l-2];
-  //         dv0 = 2.0 * ored[l] - ored[lp2] - ored[lm2];
+          // Diagonal
+          //
+          //     NW         NE
+          //
+          // R . . . .   . . . . R
+          // . . . . .   . . . . .
+          // . . * . .   . . * . .
+          // . . . . .   . . . . .
+          // . . . . R   R . . . .
+          //
+          d2nw = (2.0 * ored[p] - ored[nw2] - ored[se2]) / 8.0; // step = 2 * DIAG
+          d2ne = (2.0 * ored[p] - ored[ne2] - ored[sw2]) / 8.0;
+        }
+        else { // BLUEPOSITION
+          // Horizontal: interpolate green and red values
+          //
+          //    Even       Odd
+          //
+          // . R . . .   . . . R .
+          // . | . . .   . . . | .
+          // . + * R .   . R * + .
+          // . | . . .   . . . | .
+          // . R . . .   . . . R .
+          //
+          if (x % 2 == 0) {
+            d2h = 2.0 * oblue[p] - (oblue[nw2 + 1] + oblue[sw2 + 1] / 2.0) - oblue[e];
+          }
+          else {
+            d2h = 2.0 * oblue[p] - oblue[w] - (oblue[ne2 - 1] + oblue[se2 - 1]) / 2.0;
+          }
 
-  //       }
+          // Vertical: interpolate green and red values
+          //
+          //    Even       Odd
+          //
+          // . R-+---R   R---+-R .   <- unequal distance, interpolate with IDW
+          // . . | . .   . . | . .
+          // . . * . .   . . * . .
+          // . . | . .   . . | . .
+          // . R-+---R   R---+-R .
+          //
+          if (x % 2 == 0) {
+            d2v = (
+              2.0 * oblue[p] -
+              (oblue[nw2 + 1] + oblue[ne2] / 2.0) / 1.5 -
+              (oblue[sw2 + 1] + oblue[se2] / 2.0) / 1.5
+            ) / 4.0; // step = 2
+          }
+          else {
+            d2v = (
+              2.0 * oblue[p] -
+              (oblue[nw2] / 2.0 + oblue[ne2 - 1]) / 1.5 -
+              (oblue[sw2] / 2.0 + oblue[se2 - 1]) / 1.5
+            ) / 4.0;
+          }
 
-  //       // Add vertical and horizontal differences
-  //       adh = adh + fabsf(dh0);
-  //       adv = adv + fabsf(dv0);
+          // Diagonal
+          //
+          //     NW         NE
+          //
+          // R . . . .   . . . . R
+          // . . . . .   . . . . .
+          // . . * . .   . . * . .
+          // . . . . .   . . . . .
+          // . . . . R   R . . . .
+          //
+          d2nw = (2.0 * oblue[p] - oblue[nw2] - oblue[se2]) / 8.0; // step = 2 * DIAG
+          d2ne = (2.0 * oblue[p] - oblue[ne2] - oblue[sw2]) / 8.0;
+        }
 
-  //       // If vertical and horizontal differences are similar, compute an isotropic average
-  //       if (fabsf(adv - adh) < threshold)
+        // Add second differences to gradients
+        gh += fabsf(d2h);
+        gv += fabsf(d2v);
+        gnw += fabsf(d2nw);
+        gne += fabsf(d2ne);
 
-  //         ogreen[l] = (ogreen[lm1] +  ogreen[lp1] +  ogreen[l-1] + ogreen[l+1]) /4.0 + (dh0 + dv0) / 8.0;
+        min = std::min( std::min(gh, gv), std::min(gnw, gne) );
+        max = std::max( std::max(gh, gv), std::max(gnw, gne) );
 
-  //       // Else If horizontal differences are smaller, compute horizontal average
-  //       else if (adh < adv )
+#ifdef DEBUG_GREEN1
+        if (mask[p] == REDPOSITION) {
+          printf("\x1b[31m--------------------------------------------------------------\x1b[0m\n");
+          printf("\x1b[31mred\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
+          if (x % 2 == 0) {
+            printf("\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "    \x1b[34m%4.0f\x1b[1m\x1b[31m%4.0f\x1b[0m\x1b[31m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+          }
+          else {
+            printf("\x1b[31m%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "    \x1b[31m%4.0f\x1b[1m%4.0f\x1b[0m\x1b[34m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[31m%4.0f\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+          }
+        }
+        else { // blue
+          printf("\x1b[34m--------------------------------------------------------------\x1b[0m\n");
+          printf("\x1b[34mblue\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
+          if (x % 2 == 0) {
+            printf("\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "    \x1b[31m%4.0f\x1b[1m\x1b[34m%4.0f\x1b[0m\x1b[34m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[34m%4.0f%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+          }
+          else {
+            printf("\x1b[34m%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
+            printf( "    \x1b[34m%4.0f\x1b[1m%4.0f\x1b[0m\x1b[31m%4.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
+            printf( "    \x1b[32m%4.0f%4.0f%4.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
+            printf("\x1b[34m%4.0f\x1b[31m%4.0f%4.0f\x1b[34m%4.0f%4.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+          }
+        }
+#endif
 
-  //         ogreen[l] = (ogreen[l-1] + ogreen[l+1])/2.0 + (dh0)/4.0;
-
-  //       // Else If vertical differences are smaller, compute vertical average
-  //       else if ( adv < adh )
-
-  //         ogreen[l] = (ogreen[lp1] + ogreen[lm1])/2.0 + (dv0)/4.0;
-
-  //     }
-
+        // If all differences are similar, compute an isotropic average.
+        // if (max - min < threshold) {
+        if (1) {
+#ifdef DEBUG_GREEN1
+          printf(  "g # (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+#endif
+          //ogreen[p] =
+          //  (ogreen[nw] +  ogreen[n] + ogreen[ne] + ogreen[se] + ogreen[s] + ogreen[sw]) / 6.0 +
+          //  (d2h + d2v + d2nw + d2ne) / 4.0;
+          ogreen[p] = (ogreen[nw] + ogreen[n] + ogreen[ne] + ogreen[se] + ogreen[s] + ogreen[sw]) / 6.0;
+        }
+        else {
+          if (min == gh) {
+            // Compute horizontal average (interpolated for green, so almost same as isotropic).
+            //
+            // G . G
+            // |-*-|
+            // G . G
+            //
+#ifdef DEBUG_GREEN1
+            printf(  "g - (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+#endif
+            // ogreen[p] = (ogreen[nw] + ogreen[sw] + (ogreen[ne] + ogreen[se]) / 4.0) + d2h;
+            ogreen[p] = (ogreen[nw] + ogreen[sw] + (ogreen[ne] + ogreen[se]) / 4.0);
+          }
+          if (min == gv) {
+            // Vertical average
+#ifdef DEBUG_GREEN1
+            printf(  "g | (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+#endif
+            // ogreen[p] = (ogreen[s] + ogreen[n])/2.0 + d2v;
+            ogreen[p] = (ogreen[s] + ogreen[n])/2.0;
+          }
+          if (min == gnw) {
+            // NW average
+#ifdef DEBUG_GREEN1
+            printf(  "g \\ (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+#endif
+            // ogreen[p] = (ogreen[nw] + ogreen[se])/2.0 + d2nw;
+            ogreen[p] = (ogreen[nw] + ogreen[se])/2.0;
+          }
+          if (min == gne) {
+            // NE
+#ifdef DEBUG_GREEN1
+            printf(  "g / (- %f, | %f, \\ %f, / %f)\n", gh, gv, gnw, gne);
+#endif
+            // ogreen[p] = (ogreen[ne] + ogreen[sw])/2.0 + d2ne;
+            ogreen[p] = (ogreen[ne] + ogreen[sw])/2.0;
+          }
+        }
+#ifdef DEBUG_GREEN1
+        printf("    \x1b[32mavg: %f\x1b[0m\n", ogreen[p]);
+#endif
+      }
+    }
+  }
+#endif
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
   //demosaicking_bilinear_red_blue(redx,redy,ored,ogreen,oblue,width,height);
@@ -273,27 +492,61 @@ void demosaicking_adams(
  *
  */
 
-void demosaicking_bilinear_red_blue(int redx,int redy,float *ored,float *ogreen,float *oblue,int width,int height)
-{
-
+void demosaicking_bilinear_red_blue(
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+) {
 
 
   //Initializations
-  int bluex = 1 - redx;
-  int bluey = 1 - redy;
+  int bluex, redx;
+  int bluey, redy;
 
 
   // Mask of color per pixel
   unsigned char* mask = (unsigned char *) malloc(width*height*sizeof(unsigned char));
 
-  for(int x=0;x<width;x++)
-    for(int y=0;y<height;y++){
-
-      if (x%2 == redx && y%2 == redy) mask[y*width+x] = REDPOSITION;
-      else  if (x%2 == bluex && y%2 == bluey) mask[y*width+x] = BLUEPOSITION;
-      else  mask[y*width+x] = GREENPOSITION;
-
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      if (
+        x + y >= origWidth - 1 &&                   // NW boundary
+        y > x - origWidth - 1 &&                    // NE boundary
+        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
+        x > y - origWidth                           // SW boundary
+      ) {
+        // The raw image has zeroes in all channels outside the sensor area
+        if (y % 2 == 0) {
+          mask[y * width + x] = GREENPOSITION;
+          // ored[y * width + x] = 500;
+          // ogreen[y * width + x] = 65535;
+          // oblue[y * width + x] = 500;
+        }
+        else {
+          if ((x / 2 % 2 + y / 2 % 2) % 2 == 0) {
+            mask[y * width + x] = BLUEPOSITION;
+            // ored[y * width + x] = 500;
+            // ogreen[y * width + x] = 500;
+            // oblue[y * width + x] = 65535;
+          }
+          else {
+            mask[y * width + x] = REDPOSITION;
+            // ored[y * width + x] = 65535;
+            // ogreen[y * width + x] = 500;
+            // oblue[y * width + x] = 500;
+          }
+        }
+      }
+      else {
+        mask[y * width + x] = BLANK;
+      }
     }
+  }
+
 
 
   // Compute the differences
@@ -333,7 +586,7 @@ void demosaicking_bilinear_red_blue(int redx,int redy,float *ored,float *ogreen,
 
 
 
-  // Interpolate the blue differences making the average of possible values depending on the CFA structure
+  // Interpolate the red differences making the average of possible values depending on the CFA structure
   for(int x=0;x<width;x++)
     for(int y=0;y<height;y++)
       if (mask[y*width+x] != REDPOSITION){
