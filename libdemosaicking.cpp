@@ -52,6 +52,7 @@
 #define BLUEPOSITION 3
 
 #define DIAG 1.4142136
+#define DIAG12 2.236 // sqrt(5)
 
 #undef DEBUG_GREEN1
 
@@ -73,7 +74,6 @@
  *
  * @param[in]  ired, igreen, iblue  original cfa image
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
  * @param[in]  threshold value to consider horizontal and vertical variations equivalent and average both estimates
  * @param[in]  width, height size of the image
  *
@@ -100,6 +100,7 @@ void demosaicking_adams(
 
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
+      int p = y * width + x;
       if (
         x + y >= origWidth - 1 &&                   // NW boundary
         y > x - origWidth - 1 &&                    // NE boundary
@@ -108,28 +109,28 @@ void demosaicking_adams(
       ) {
         // The raw image has zeroes in all channels outside the sensor area
         if (y % 2 == 0) {
-          mask[y * width + x] = GREENPOSITION;
-          // ored[y * width + x] = 500;
-          // ogreen[y * width + x] = 65535;
-          // oblue[y * width + x] = 500;
+          mask[p] = GREENPOSITION;
+          // ored[p] = 500;
+          // ogreen[p] = 65535;
+          // oblue[p] = 500;
         }
         else {
           if ((x / 2 % 2 + y / 2 % 2) % 2 == 0) {
-            mask[y * width + x] = BLUEPOSITION;
-            // ored[y * width + x] = 500;
-            // ogreen[y * width + x] = 500;
-            // oblue[y * width + x] = 65535;
+            mask[p] = BLUEPOSITION;
+            // ored[p] = 500;
+            // ogreen[p] = 500;
+            // oblue[p] = 65535;
           }
           else {
-            mask[y * width + x] = REDPOSITION;
-            // ored[y * width + x] = 65535;
-            // ogreen[y * width + x] = 500;
-            // oblue[y * width + x] = 500;
+            mask[p] = REDPOSITION;
+            // ored[p] = 65535;
+            // ogreen[p] = 500;
+            // oblue[p] = 500;
           }
         }
       }
       else {
-        mask[y * width + x] = BLANK;
+        mask[p] = BLANK;
       }
     }
   }
@@ -138,10 +139,11 @@ void demosaicking_adams(
   // distance weighting.
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
+      int p = y * width + x;
       if (
         (
-         mask[y * width + x] == BLUEPOSITION ||
-         mask[y * width + x] == REDPOSITION
+         mask[p] == BLUEPOSITION ||
+         mask[p] == REDPOSITION
         )
         &&
         (
@@ -162,10 +164,10 @@ void demosaicking_adams(
           nw = (y - 1) * width + x - 1;
 
         if (x == 0) { // West corner red
-          ogreen[y * width + x] = (ogreen[ne] + ogreen[se]) / 2;
+          ogreen[p] = (ogreen[ne] + ogreen[se]) / 2;
         }
         else if (x == width - 1) { // East corner blue
-          ogreen[y * width + x] = (ogreen[nw] + ogreen[sw]) / 2;
+          ogreen[p] = (ogreen[nw] + ogreen[sw]) / 2;
         }
         else {
           if (mask[nw] != BLANK) {
@@ -193,7 +195,7 @@ void demosaicking_adams(
             avg += ogreen[se] / DIAG;
             weight += 1 / DIAG;
           }
-          ogreen[y * width + x] = avg / weight;
+          ogreen[p] = avg / weight;
         }
       }
     }
@@ -209,7 +211,7 @@ void demosaicking_adams(
         x + y >= origWidth - 1 + 4 &&                   // NW boundary
         y > x - origWidth - 1 + 4 &&                    // NE boundary
         x + y < origWidth + 2 * origHeight - 1 - 4 &&   // SE boundary
-        x > y - origWidth + 4                          // SW boundary
+        x > y - origWidth + 4                           // SW boundary
       ) {
         int
           n = (y - 1) * width + x,
@@ -253,14 +255,14 @@ void demosaicking_adams(
           //
           //     NW         NE
           //
-          // R . . . .   . . . . R
+          // B . . . .   . . . . B
           // . . . . .   . . . . .
           // . . * . .   . . * . .
           // . . . . .   . . . . .
-          // . . . . R   R . . . .
+          // . . . . B   B . . . .
           //
           d2nw = (2.0 * oblue[p] - oblue[nw2] - oblue[se2]) / 8.0;
-          d2ne = (2.0 * oblue[p] - oblue[ne2] - oblue[sw2]) / 8.0;
+          d2ne = (2.0 * oblue[p]  - oblue[ne2] - oblue[sw2]) / 8.0;
         }
 
         // Add second differences to gradients
@@ -340,7 +342,7 @@ void demosaicking_adams(
   }
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
-  //demosaicking_bilinear_red_blue(redx,redy,ored,ogreen,oblue,width,height);
+  demosaicking_bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight);
 
 
   free(mask);
@@ -387,25 +389,26 @@ void demosaicking_bilinear_red_blue(
         x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
         x > y - origWidth                           // SW boundary
       ) {
+        int p = y * width + x;
         // The raw image has zeroes in all channels outside the sensor area
         if (y % 2 == 0) {
-          mask[y * width + x] = GREENPOSITION;
-          // ored[y * width + x] = 500;
-          // ogreen[y * width + x] = 65535;
-          // oblue[y * width + x] = 500;
+          mask[p] = GREENPOSITION;
+          // ored[p] = 500;
+          // ogreen[p] = 65535;
+          // oblue[p] = 500;
         }
         else {
           if ((x / 2 % 2 + y / 2 % 2) % 2 == 0) {
-            mask[y * width + x] = BLUEPOSITION;
-            // ored[y * width + x] = 500;
-            // ogreen[y * width + x] = 500;
-            // oblue[y * width + x] = 65535;
+            mask[p] = BLUEPOSITION;
+            // ored[p] = 500;
+            // ogreen[p] = 500;
+            // oblue[p] = 65535;
           }
           else {
-            mask[y * width + x] = REDPOSITION;
-            // ored[y * width + x] = 65535;
-            // ogreen[y * width + x] = 500;
-            // oblue[y * width + x] = 500;
+            mask[p] = REDPOSITION;
+            // ored[p] = 65535;
+            // ogreen[p] = 500;
+            // oblue[p] = 500;
           }
         }
       }
@@ -415,44 +418,161 @@ void demosaicking_bilinear_red_blue(
     }
   }
 
-
-
   // Compute the differences
-  for(int i=0; i < width*height;i++){
-
+  for (int i = 0; i < width * height; i++) {
     ored[i] -= ogreen[i];
     oblue[i] -= ogreen[i];
+  }
 
+  // Interpolate the blue differences making the average of possible values depending on the CFA structure
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+      int p = y * width + x;
+      if (mask[p] != BLUEPOSITION && mask[p] != BLANK) {
+        int
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
+          e = p + 1,
+          w = p - 1,
+          e2 = p + 2,
+          w2 = p - 2,
+          ne = (y - 1) * width + x + 1,
+          se = (y + 1) * width + x + 1,
+          sw = (y + 1) * width + x - 1,
+          nw = (y - 1) * width + x - 1,
+          n2 = (y - 2) * width + x,
+          s2 = (y + 2) * width + x;
+
+        if (x + y == origWidth - 1) {  // NW boundary
+          if (mask[p] == GREENPOSITION) {
+            // IDW-average the underlying blue block to the inner green pixel
+            // (G) and copy it to the outer green pixel (*). All other blue pixels
+            // are too far to be useful.
+            //
+            //     . . b b
+            //   * G . . .
+            // . . B B . .
+            // . . . . . .
+            // b b . . b b
+            //
+            oblue[e] = (oblue[se] + oblue[se + 1] / DIAG) / (1 + 1 / DIAG);
+            oblue[p] = oblue[e];
+          }
+          else { // REDPOSITION
+            // Each red block can be interpolated from the closest two blue blocks.
+            //
+            //   Outer        Inner
+            //
+            //     . . .        . . .
+            //   * - B .      * R B .
+            // . | \ . .    . / | . .
+            // . B B . .    . B B . .
+            // . . . . .    . . . . .
+            //
+            oblue[p] = (oblue[s2] / 2 + oblue[s2 + 1] / DIAG12 + oblue[e2] / 2) / (1 + 1 / DIAG12);
+            oblue[e] = (oblue[s2 - 1] / DIAG12 + oblue[s2] / 2 + oblue[e]) / (1.5 + 1 / DIAG12);
+          }
+        }
+        else if (y >= x + origWidth - 1) {  // SW boundary
+          if (mask[p] == GREENPOSITION) {
+            // IDW-average the overlying blue block to the inner green pixel
+            // (G) and copy it to the outer green pixel (*). All other blue pixels
+            // are too far to be useful.
+            //
+            // b b . . b b
+            // . . . . . .
+            // . . B B . .
+            //   * G . . .
+            //     . . b b
+            //
+            oblue[e] = (oblue[ne] + oblue[ne + 1] / DIAG) / (1 + 1 / DIAG);
+            oblue[p] = oblue[e];
+          }
+          else { // REDPOSITION
+            // Each red block can be interpolated from the closest two blue blocks.
+            //
+            //   Outer        Inner
+            //
+            // . . . . .    . . . . .
+            // . B B . .    . B B . .
+            // . | / . .    . \ | . .
+            //   * - B .      * R B .
+            //     . . .        . . .
+            //
+            oblue[p] = (oblue[n2] / 2 + oblue[n2 + 1] / DIAG12 + oblue[e2] / 2) / (1 + 1 / DIAG12);
+            oblue[e] = (oblue[n2 - 1] / DIAG12 + oblue[n2] / 2 + oblue[e]) / (1.5 + 1 / DIAG12);
+          }
+        }
+        else if ( // Green interior and east boundaries
+          mask[p] == GREENPOSITION &&
+          x + y >= origWidth - 1 + 2 &&  // NW boundary
+          x > y - origWidth + 2          // SW boundary
+        ) {
+          // The interpolation pattern for green pixels depends on their horizontal position.
+          if ((x + y - 1) % 4 == 0) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . B . . . .
+            // . * . . . . .
+            // B B . . . . .
+            // . . . . . . .
+            //
+            oblue[p] = (oblue[ne] / DIAG + oblue[sw] / DIAG + oblue[s]) / (1 + 2 / DIAG);
+          }
+          if ((x + y - 1) % 4 == 1) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . B B . . .
+            // . . * . . . .
+            // . B . . . . .
+            // . . . . . . .
+            //
+            oblue[p] = (oblue[ne] / DIAG + oblue[sw] / DIAG + oblue[n]) / (1 + 2 / DIAG);
+          }
+          if ((x + y - 1) % 4 == 2) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . B B . . .
+            // . . . * . . .
+            // . . . . B . .
+            // . . . . . . .
+            //
+            oblue[p] = (oblue[nw] / DIAG + oblue[se] / DIAG + oblue[n]) / (1 + 2 / DIAG);
+          }
+          if ((x + y - 1) % 4 == 3) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . . B . . .
+            // . . . . * . .
+            // . . . . B B .
+            // . . . . . . .
+            //
+            oblue[p] = (oblue[nw] / DIAG + oblue[se] / DIAG + oblue[n]) / (1 + 2 / DIAG);
+          }
+        }
+
+        else if ( // Red interior (red does not occur on the east boundary)
+          mask[p] == REDPOSITION &&
+          x + y >= origWidth - 1 + 2 &&  // NW boundary
+          x > y - origWidth + 2          // SW boundary
+        ) {
+          if (x % 2 == 0) {
+            oblue[p] = (oblue[n2] / 2 + oblue[e2] / 2 + oblue[s2] / 2 + oblue[w])  / (1 + 3 / 2);
+          }
+          else {
+            oblue[p] = (oblue[n2] / 2 + oblue[e] + oblue[s2] / 2 + oblue[w2] / 2)  / (1 + 3 / 2);
+          }
+        }
+      }
+    }
   }
 
 
-
-  // Interpolate the blue differences making the average of possible values depending on the CFA structure
-  for(int x=0; x < width;x++)
-    for(int y=0; y < height;y++)
-      if (mask[y*width+x] != BLUEPOSITION){
-
-        int gn, gs, ge, gw;
-
-        // Compute north, south, west, east positions
-        // taking a mirror symmetry at the boundaries
-        if (y > 0)  gn = y-1; else    gn = 1;
-        if (y < height-1) gs = y+1;  else  gs = height - 2 ;
-        if (x < width-1)  ge = x+1;  else  ge = width-2;
-        if (x > 0) gw = x-1;  else  gw = 1;
-
-        if (mask[y*width+x] == GREENPOSITION && y % 2 == bluey)
-          oblue[y*width+x] = ( oblue[y*width+ge] + oblue[y*width+gw])/2.0;
-        else if (mask[y*width+x] == GREENPOSITION  && x % 2 == bluex)
-          oblue[y*width+x] = ( oblue[gn*width+x] + oblue[gs*width+x])/2.0;
-        else {
-          oblue[y*width+x] =  (oblue[gn*width+ge] + oblue[gn*width + gw]  +  oblue[gs*width + ge] +  oblue[gs*width +gw])/4.0;
-        }
-
-      }
-
-
-
+#ifdef OK
 
   // Interpolate the red differences making the average of possible values depending on the CFA structure
   for(int x=0;x<width;x++)
@@ -478,6 +598,7 @@ void demosaicking_bilinear_red_blue(
 
       }
 
+#endif
 
   // Make back the differences
   for(int i=0;i<width*height;i++){
@@ -486,15 +607,9 @@ void demosaicking_bilinear_red_blue(
     oblue[i] += ogreen[i];
   }
 
-
-
   free(mask);
 
 }
-
-
-
-
 
 
 
