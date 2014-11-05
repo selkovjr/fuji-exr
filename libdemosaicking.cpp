@@ -555,7 +555,7 @@ void demosaicking_bilinear_red_blue(
           }
         }
 
-        else if ( // Red interior (red does not occur on the east boundary)
+        else if ( // Red interior (red does not occur on the east boundaries)
           mask[p] == REDPOSITION &&
           x + y >= origWidth - 1 + 2 &&  // exclude NW boundary
           x > y - origWidth + 2          // exclude SW boundary
@@ -571,7 +571,6 @@ void demosaicking_bilinear_red_blue(
     }
   }
 
-#ifdef OK
   // Interpolate the red differences making the average of possible values depending on the CFA structure
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
@@ -669,7 +668,7 @@ void demosaicking_bilinear_red_blue(
             //
             ored[p] = (ored[ne] / DIAG + ored[sw] / DIAG + ored[s]) / (1 + 2 / DIAG);
           }
-          if ((x + y - 1) % 4 == 1) {
+          if ((x + y + 1) % 4 == 1) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -680,7 +679,7 @@ void demosaicking_bilinear_red_blue(
             //
             ored[p] = (ored[ne] / DIAG + ored[sw] / DIAG + ored[n]) / (1 + 2 / DIAG);
           }
-          if ((x + y - 1) % 4 == 2) {
+          if ((x + y + 1) % 4 == 2) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -691,7 +690,7 @@ void demosaicking_bilinear_red_blue(
             //
             ored[p] = (ored[nw] / DIAG + ored[se] / DIAG + ored[n]) / (1 + 2 / DIAG);
           }
-          if ((x + y - 1) % 4 == 3) {
+          if ((x + y + 1) % 4 == 3) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -704,10 +703,23 @@ void demosaicking_bilinear_red_blue(
           }
         }
 
+        else if ( // Blue interior (blue does not occur on the west boundaries)
+          mask[p] == BLUEPOSITION &&
+          y > x - origWidth - 1 + 2 &&                // exclude NE boundary
+          x + y < origWidth + 2 * origHeight - 1 - 2  // exclude SE boundary
+        ) {
+          if (x % 2 == 0) {
+            ored[p] = (ored[n2] / 2 + ored[e2] / 2 + ored[s2] / 2 + ored[w]) / 2.5;
+          }
+          else {
+            ored[p] = (ored[n2] / 2 + ored[e] + ored[s2] / 2 + ored[w2] / 2) / 2.5;
+          }
+        }
       }
     }
   }
 
+#ifdef OK
 #endif
 
   // Make back the differences
