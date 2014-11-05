@@ -719,12 +719,8 @@ void demosaicking_bilinear_red_blue(
     }
   }
 
-#ifdef OK
-#endif
-
   // Make back the differences
-  for(int i=0;i<width*height;i++){
-
+  for (int i=0; i < width * height; i++){
     ored[i] += ogreen[i];
     oblue[i] += ogreen[i];
   }
