@@ -446,14 +446,14 @@ void demosaicking_bilinear_red_blue(
         if (x + y == origWidth - 1) {  // NW boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average the underlying blue block to the inner green pixel
-            // (G) and copy it to the outer green pixel (*). All other blue pixels
+            // (e) and copy it to the outer green pixel (*). All other blue pixels
             // are too far to be useful.
             //
-            //     . . b b
-            //   * G . . .
+            //     . . B B
+            //   * e . . .
             // . . B B . .
             // . . . . . .
-            // b b . . b b
+            // B B . . B B
             //
             oblue[e] = (oblue[se] + oblue[se + 1] / DIAG) / (1 + 1 / DIAG);
             oblue[p] = oblue[e];
@@ -464,7 +464,7 @@ void demosaicking_bilinear_red_blue(
             //   Outer        Inner
             //
             //     . . .        . . .
-            //   * - B .      * R B .
+            //   * - B .      * e B .
             // . | \ . .    . / | . .
             // . B B . .    . B B . .
             // . . . . .    . . . . .
@@ -479,11 +479,11 @@ void demosaicking_bilinear_red_blue(
             // (G) and copy it to the outer green pixel (*). All other blue pixels
             // are too far to be useful.
             //
-            // b b . . b b
+            // B B . . B B
             // . . . . . .
             // . . B B . .
-            //   * G . . .
-            //     . . b b
+            //   * e . . .
+            //     . . B B
             //
             oblue[e] = (oblue[ne] + oblue[ne + 1] / DIAG) / (1 + 1 / DIAG);
             oblue[p] = oblue[e];
@@ -505,11 +505,11 @@ void demosaicking_bilinear_red_blue(
         }
         else if ( // Green interior and east boundaries
           mask[p] == GREENPOSITION &&
-          x + y >= origWidth - 1 + 2 &&  // NW boundary
-          x > y - origWidth + 2          // SW boundary
+          x + y >= origWidth - 1 + 2 &&  // exclude NW boundary
+          x > y - origWidth + 2          // exclude SW boundary
         ) {
           // The interpolation pattern for green pixels depends on their horizontal position.
-          if ((x + y - 1) % 4 == 0) {
+          if ((x + y + 3) % 4 == 0) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -520,7 +520,7 @@ void demosaicking_bilinear_red_blue(
             //
             oblue[p] = (oblue[ne] / DIAG + oblue[sw] / DIAG + oblue[s]) / (1 + 2 / DIAG);
           }
-          if ((x + y - 1) % 4 == 1) {
+          if ((x + y + 3) % 4 == 1) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -531,7 +531,7 @@ void demosaicking_bilinear_red_blue(
             //
             oblue[p] = (oblue[ne] / DIAG + oblue[sw] / DIAG + oblue[n]) / (1 + 2 / DIAG);
           }
-          if ((x + y - 1) % 4 == 2) {
+          if ((x + y + 3) % 4 == 2) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -542,7 +542,7 @@ void demosaicking_bilinear_red_blue(
             //
             oblue[p] = (oblue[nw] / DIAG + oblue[se] / DIAG + oblue[n]) / (1 + 2 / DIAG);
           }
-          if ((x + y - 1) % 4 == 3) {
+          if ((x + y + 3) % 4 == 3) {
             //
             //   0 1 2 3
             // . . . . . . .
@@ -557,46 +557,156 @@ void demosaicking_bilinear_red_blue(
 
         else if ( // Red interior (red does not occur on the east boundary)
           mask[p] == REDPOSITION &&
-          x + y >= origWidth - 1 + 2 &&  // NW boundary
-          x > y - origWidth + 2          // SW boundary
+          x + y >= origWidth - 1 + 2 &&  // exclude NW boundary
+          x > y - origWidth + 2          // exclude SW boundary
         ) {
           if (x % 2 == 0) {
-            oblue[p] = (oblue[n2] / 2 + oblue[e2] / 2 + oblue[s2] / 2 + oblue[w])  / (1 + 3 / 2);
+            oblue[p] = (oblue[n2] / 2 + oblue[e2] / 2 + oblue[s2] / 2 + oblue[w]) / 2.5;
           }
           else {
-            oblue[p] = (oblue[n2] / 2 + oblue[e] + oblue[s2] / 2 + oblue[w2] / 2)  / (1 + 3 / 2);
+            oblue[p] = (oblue[n2] / 2 + oblue[e] + oblue[s2] / 2 + oblue[w2] / 2) / 2.5;
           }
         }
       }
     }
   }
 
-
 #ifdef OK
-
   // Interpolate the red differences making the average of possible values depending on the CFA structure
-  for(int x=0;x<width;x++)
-    for(int y=0;y<height;y++)
-      if (mask[y*width+x] != REDPOSITION){
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+      int p = y * width + x;
+      if (mask[p] != REDPOSITION && mask[p] != BLANK) {
+        int
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
+          e = p + 1,
+          w = p - 1,
+          e2 = p + 2,
+          w2 = p - 2,
+          ne = (y - 1) * width + x + 1,
+          se = (y + 1) * width + x + 1,
+          sw = (y + 1) * width + x - 1,
+          nw = (y - 1) * width + x - 1,
+          n2 = (y - 2) * width + x,
+          s2 = (y + 2) * width + x;
 
-        int gn, gs, ge, gw;
 
-        // Compute north, south, west, east positions
-        // taking a mirror symmetry at the boundaries
-        if (y > 0)  gn = y-1; else    gn = 1;
-        if (y < height-1) gs = y+1;  else  gs = height - 2 ;
-        if (x < width-1)  ge = x+1;  else  ge = width-2;
-        if (x > 0) gw = x-1;  else  gw = 1;
-
-        if (mask[y*width+x] == GREENPOSITION && y % 2 == redy)
-          ored[y*width+x] = ( ored[y*width+ge] + ored[y*width+gw])/2.0;
-        else if (mask[y*width+x] == GREENPOSITION  && x % 2 == redx)
-          ored[y*width+x] = ( ored[gn*width+x] + ored[gs*width+x])/2.0;
-        else {
-          ored[y*width+x] =  (ored[gn*width+ge] + ored[gn*width + gw]  +  ored[gs*width + ge] +  ored[gs*width +gw])/4.0;
+        if (y == x - origWidth) {  // NE boundary
+          if (mask[p] == GREENPOSITION) {
+            // IDW-average the underlying red block to the inner green pixel
+            // (G) and copy it to the outer green pixel (*). All other red
+            // pixels are too far to be useful.
+            //
+            // r r . .
+            // . . . w *
+            // . . R R . .
+            // . . . . . .
+            // r r . . r r
+            //
+            ored[w] = (ored[sw] + ored[sw + 1] / DIAG) / (1 + 1 / DIAG);
+            ored[p] = ored[w];
+          }
+          else { // BLUEPOSITION
+            // Each blue block can be interpolated from the closest two red blocks.
+            //
+            //  Inner       Outer
+            //
+            // . . .       . . .
+            // . R w *     . R - *
+            // . . | \ .   . . / | .
+            // . . R R .   . . R R .
+            // . . . . .   . . . . .
+            //
+            ored[w] = (ored[s2 + 1] / DIAG12 + ored[s2] / 2 + ored[w]) / (1.5 + 1 / DIAG12);
+            ored[p] = (ored[s2] / 2 + ored[s2 - 1] / DIAG12 + ored[w2] / 2) / (1 + 1 / DIAG12);
+          }
+        }
+        else if (x + y == origWidth + 2 * origHeight - 2) {  // SE boundary
+          if (mask[p] == GREENPOSITION) {
+             // IDW-average the overlying red block to the inner green pixel
+             // (w) and copy it to the outer green pixel (*). All other red
+             // pixels are too far to be useful.
+             //
+             // R R . . R R
+             // . . . . . .
+             // . . R R . .
+             // . . . w *
+             // R B . .
+             //
+             ored[w] = (ored[nw] + ored[nw - 1] / DIAG) / (1 + 1 / DIAG);
+             ored[p] = ored[w];
+           }
+           else { // BLUEPOSITION
+             // Each blue block can be interpolated from the closest two red blocks.
+             //
+             //   Outer        Inner
+             //
+             // . . . . .    . . . . .
+             // . . R R .    . . R R .
+             // . . \ | .    . . | / .
+             // . R - *      . R w *
+             // . . .        . . .
+             //
+             ored[p] = (ored[n2] / 2 + ored[n2 - 1] / DIAG12 + ored[w2] / 2) / (1 + 1 / DIAG12);
+             ored[w] = (ored[n2 + 1] / DIAG12 + ored[n2] / 2 + ored[w]) / (1.5 + 1 / DIAG12);
+          }
+        }
+        else if ( // Green interior and west boundaries
+          mask[p] == GREENPOSITION &&
+          y > x - origWidth - 1 + 2 &&                // exclude NE boundary
+          x + y < origWidth + 2 * origHeight - 1 - 2  // exclude SE boundary
+        ) {
+          // The interpolation pattern for green pixels depends on their horizontal position.
+          if ((x + y + 1) % 4 == 0) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . R . . . .
+            // . * . . . . .
+            // R R . . . . .
+            // . . . . . . .
+            //
+            ored[p] = (ored[ne] / DIAG + ored[sw] / DIAG + ored[s]) / (1 + 2 / DIAG);
+          }
+          if ((x + y - 1) % 4 == 1) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . R R . . .
+            // . . * . . . .
+            // . R . . . . .
+            // . . . . . . .
+            //
+            ored[p] = (ored[ne] / DIAG + ored[sw] / DIAG + ored[n]) / (1 + 2 / DIAG);
+          }
+          if ((x + y - 1) % 4 == 2) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . R R . . .
+            // . . . * . . .
+            // . . . . R . .
+            // . . . . . . .
+            //
+            ored[p] = (ored[nw] / DIAG + ored[se] / DIAG + ored[n]) / (1 + 2 / DIAG);
+          }
+          if ((x + y - 1) % 4 == 3) {
+            //
+            //   0 1 2 3
+            // . . . . . . .
+            // . . . R . . .
+            // . . . . * . .
+            // . . . . R R .
+            // . . . . . . .
+            //
+            ored[p] = (ored[nw] / DIAG + ored[se] / DIAG + ored[n]) / (1 + 2 / DIAG);
+          }
         }
 
       }
+    }
+  }
 
 #endif
 
