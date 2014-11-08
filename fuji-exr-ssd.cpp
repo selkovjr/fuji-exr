@@ -53,12 +53,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "libdemosaicking.h"
+#include "libdemosaic.h"
 #include "io_tiff.h"
 #include "tiffio.h"
 
 /**
- * @file   demosaickingIpol.cpp
+ * @file   fuji-exr-ssd.cpp
  * @brief  Main executable file
  *
  *
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
 
 
   /* process */
-  ssd_demosaicking_chain(
+  ssd_demosaic_chain(
     data_in,
     data_out,
     data_out + nx * ny,
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
     origHeight
   );
 
-  printf("demosaicking_chain() -> %f\n", data_out[8990]);
+  printf("demosaic_chain() -> %f\n", data_out[8990]);
 
   /* limit to 0-65535 */
   out_ptr = data_out;

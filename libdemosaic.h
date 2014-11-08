@@ -44,8 +44,8 @@
 
 
 
-#ifndef _LIBDEMOSAICKING_H_
-#define _LIBDEMOSAICKING_H_
+#ifndef _LIBDEMOSAIC_H_
+#define _LIBDEMOSAIC_H_
 
 
 
@@ -56,7 +56,7 @@
 #include "libAuxiliary.h"
 
 /**
- * @file   libdemosaicking.cpp
+ * @file   libdemosaic.cpp
  * @brief  Demosaicking functions: HAmilton-Adams algorithm, NLmeans based demosaicking, Chromatic components filtering
  *
  *
@@ -79,7 +79,7 @@
  * @param[in]  width, height size of the image
  *
  */
-void demosaicking_adams(
+void adams_hamilton(
   float threshold,
   float *input,
   float *ored,
@@ -102,7 +102,7 @@ void demosaicking_adams(
  * @param[in]  width, height size of the image
  *
  */
-void demosaicking_bilinear_red_blue(
+void bilinear_red_blue(
   float *ored,
   float *ogreen,
   float *oblue,
@@ -130,7 +130,7 @@ void demosaicking_bilinear_red_blue(
  */
 
 
-void demosaicking_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height);
+void demosaic_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height);
 
 
 
@@ -184,7 +184,7 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
  */
 
 
-void ssd_demosaicking_chain(
+void ssd_demosaic_chain(
   float *input,
   float *ored,
   float *ogreen,

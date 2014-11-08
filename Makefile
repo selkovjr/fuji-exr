@@ -1,4 +1,4 @@
-OBJ	= io_tiff.o libdemosaicking.o  libAuxiliary.o fuji-exr-ssd.o
+OBJ	= io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr-ssd.o
 BIN = fuji-exr-ssd
 LIBBIN=.
 
@@ -16,7 +16,7 @@ CXXFLAGS  +=  -g $(COPT)  -Weffc++  -pedantic -Wall -Wextra  -Wno-write-strings 
 LDFLAGS +=  -g $(CXXFLAGS) $(libdir) -ltiff
 
 
-LIBMX=io_tiff.o libAuxiliary.o libdemosaicking.o
+LIBMX=io_tiff.o libAuxiliary.o libdemosaic.o
 
 
 default: $(OBJ)  $(BIN)

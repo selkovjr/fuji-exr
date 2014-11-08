@@ -43,7 +43,7 @@
 */
 
 #include <algorithm>
-#include "libdemosaicking.h"
+#include "libdemosaic.h"
 
 
 #define BLANK 0
@@ -57,9 +57,8 @@
 #undef DEBUG_GREEN1
 
 /**
- * @file   libdemosaicking.cpp
- * @brief  Demosaicking functions: HAmilton-Adams algorithm, NLmeans based demosaicking, Chromatic components filtering
- *
+ * @file   libdemosaic.cpp
+ * @brief  Demosaicking functions: Hamilton-Adams algorithm, NLmeans-based demosaicking, Chromatic components filtering
  *
  *
  * @author Antoni Buades <toni.buades@uib.es>
@@ -79,7 +78,7 @@
  *
  */
 
-void demosaicking_adams(
+void adams_hamilton(
   float threshold,
   float *input,
   float *ored,
@@ -110,22 +109,13 @@ void demosaicking_adams(
         // The raw image has zeroes in all channels outside the sensor area
         if (y % 2 == 0) {
           mask[p] = GREENPOSITION;
-          // ored[p] = 500;
-          // ogreen[p] = 65535;
-          // oblue[p] = 500;
         }
         else {
           if ((x / 2 % 2 + y / 2 % 2) % 2 == 0) {
-            mask[p] = BLUEPOSITION;
-            // ored[p] = 500;
-            // ogreen[p] = 500;
-            // oblue[p] = 65535;
+            mask[p] = REDPOSITION;
           }
           else {
-            mask[p] = REDPOSITION;
-            // ored[p] = 65535;
-            // ogreen[p] = 500;
-            // oblue[p] = 500;
+            mask[p] = BLUEPOSITION;
           }
         }
       }
@@ -342,7 +332,7 @@ void demosaicking_adams(
   }
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
-  demosaicking_bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight);
+  bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight);
 
 
   free(mask);
@@ -357,12 +347,12 @@ void demosaicking_adams(
  *
  * @param[in]  ored, ogreen, oblue  original cfa image with green interpolated
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
- * @param[in]  width, height size of the image
+ * @param[in]  width, height size of the merged image
+ * @param[in]  origWidth, origHeight original image size
  *
  */
 
-void demosaicking_bilinear_red_blue(
+void bilinear_red_blue(
   float *ored,
   float *ogreen,
   float *oblue,
@@ -371,11 +361,6 @@ void demosaicking_bilinear_red_blue(
   int origWidth,
   int origHeight
 ) {
-
-
-  //Initializations
-  int bluex, redx;
-  int bluey, redy;
 
 
   // Mask of color per pixel
@@ -722,11 +707,12 @@ void demosaicking_bilinear_red_blue(
   // Make back the differences
   for (int i=0; i < width * height; i++){
     ored[i] += ogreen[i];
+    ored[i] *= 1.565476;
     oblue[i] += ogreen[i];
+    oblue[i] *= 1.845238;
   }
 
   free(mask);
-
 }
 
 
@@ -747,7 +733,7 @@ void demosaicking_bilinear_red_blue(
  */
 
 
-void demosaicking_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height)
+void demosaic_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height)
 {
 
 
@@ -998,7 +984,7 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
 
 
 
-void ssd_demosaicking_chain(
+void ssd_demosaic_chain(
   float *input,
   float *ored,
   float *ogreen,
@@ -1019,25 +1005,24 @@ void ssd_demosaicking_chain(
   float threshold = 2.0;
 
 
-  demosaicking_adams(threshold, input, ored, ogreen, oblue, width, height, origWidth, origHeight);
-  printf("demosaicking_adams() -> %f\n", ogreen[8990]);
+  adams_hamilton(threshold, input, ored, ogreen, oblue, width, height, origWidth, origHeight);
 
 //
 //
 //   h = 16.0;
-//   demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+//   demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
 //   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 //
 //
 //
 //   h = 4.0;
-//   demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+//   demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
 //   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 //
 //
 //
 //   h = 1.0;
-//   demosaicking_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+//   demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
 //   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 }
 
