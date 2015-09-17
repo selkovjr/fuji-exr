@@ -6,8 +6,10 @@ import os
 import subprocess
 
 #basename = '141006_163724'
-basename = '141011_154520'
+#basename = '141011_155913'
 #basename = '141016_155913'
+basename = 'test/DSCF3564'
+
 frame = []
 
 for fn in ['0', '1']:
@@ -36,7 +38,8 @@ bayer = ImagePlus("Sensor", ip)
 fs = FileSaver(bayer)  
 fs.saveAsTiff(os.path.dirname(filename) + '/' + 'raw.tiff')
 
-subprocess.call(['/opt/local/bin/tiffset', '-s', '270', 'width = ' + str(width) + ', height = ' + str(height), os.environ['HOME'] + '/' + 'raw.tiff'])
+print '/opt/local/bin/tiffset' + ' -s' + ' 270' + ' width = ' + str(width) + ', height = ' + str(height) + ' ' + os.environ['HOME'] + '/test/' + 'raw.tiff'
+subprocess.call(['/opt/local/bin/tiffset', '-s', '270', 'width = ' + str(width) + ', height = ' + str(height), os.environ['HOME'] + '/test/' + 'raw.tiff'])
 
 bayer.show()
  
