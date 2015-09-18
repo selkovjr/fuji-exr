@@ -178,8 +178,6 @@ float l2_distance_r1(float *u0, int i0, int j0, int i1,
 
     ptr0 = u0 + (j0 - 1) * width + i0 - 1;
     ptr1 = u0 + (j1 - 1) * width + i1 - 1;
-    *ptr0 = 65535;
-    *ptr1 = 55535;
 
     /* first line */
 

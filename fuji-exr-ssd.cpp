@@ -109,6 +109,8 @@ int main(int argc, char **argv) {
   /* process */
   ssd_demosaic_chain(
     data_in,
+    data_in + nx * ny,
+    data_in + 2 * nx * ny,
     data_out,
     data_out + nx * ny,
     data_out + 2 * nx * ny,
@@ -117,8 +119,6 @@ int main(int argc, char **argv) {
     origWidth,
     origHeight
   );
-
-  printf("demosaic_chain() -> %f\n", data_out[8990]);
 
   /* limit to 0-65535 */
   out_ptr = data_out;

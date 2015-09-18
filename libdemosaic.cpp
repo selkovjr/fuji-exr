@@ -84,7 +84,9 @@
 
 void adams_hamilton(
   float threshold,
-  float *input,
+  float *ired,
+  float *igreen,
+  float *iblue,
   float *ored,
   float *ogreen,
   float *oblue,
@@ -101,9 +103,9 @@ void adams_hamilton(
   }
 #endif
 
-  wxCopy(input, ored, width * height);
-  wxCopy(input, ogreen, width * height);
-  wxCopy(input, oblue, width * height);
+  wxCopy(ired, ored, width * height);
+  wxCopy(igreen, ogreen, width * height);
+  wxCopy(iblue, oblue, width * height);
 
   // CFA Mask indicating which color each sensor pixel has
   unsigned char* mask = (unsigned char *) malloc(width * height * sizeof(unsigned char));
@@ -313,36 +315,36 @@ void adams_hamilton(
           printf("\x1b[34m--------------------------------------------------------------\x1b[0m\n");
           printf("\x1b[34mblue\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
           if (x % 2 == 0) {
-            printf("\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "      \x1b[31m%6.0f\x1b[1m\x1b[34m%6.0f\x1b[0m\x1b[34m%6.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
+            printf( "      \x1b[31m%6.0f\x1b[1m\x1b[34m%6.0f\x1b[0m\x1b[34m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
+            printf("\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
           }
           else {
-            printf("\x1b[34m%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "      \x1b[34m%6.0f\x1b[1m%6.0f\x1b[0m\x1b[31m%6.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[34m%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[34m%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
+            printf( "      \x1b[34m%6.0f\x1b[1m%6.0f\x1b[0m\x1b[31m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
+            printf("\x1b[34m%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
           }
         }
         else { // red
           printf("\x1b[31m--------------------------------------------------------------\x1b[0m\n");
           printf("\x1b[31mred\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
           if (x % 2 == 0) {
-            printf("\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "      \x1b[34m%6.0f\x1b[1m\x1b[31m%6.0f\x1b[0m\x1b[31m%6.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
+            printf( "      \x1b[34m%6.0f\x1b[1m\x1b[31m%6.0f\x1b[0m\x1b[31m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
+            printf("\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
           }
           else {
-            printf("\x1b[31m%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[0m\n",   input[nw2], input[nw2 + 1], input[n2], input[ne2 - 1], input[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[nw],      input[n],  input[ne]);
-            printf( "      \x1b[31m%6.0f\x1b[1m%6.0f\x1b[0m\x1b[34m%6.0f\x1b[0m\n",                                    input[w],       input[p],  input[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    input[sw],      input[s],  input[se]);
-            printf("\x1b[31m%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[0m\n",   input[sw2], input[sw2 + 1], input[s2], input[se2 - 1], input[se2]);
+            printf("\x1b[31m%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
+            printf( "      \x1b[31m%6.0f\x1b[1m%6.0f\x1b[0m\x1b[34m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
+            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
+            printf("\x1b[31m%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
           }
         }
 #endif
@@ -893,7 +895,7 @@ void bilinear_red_blue(
 
 
   // Make back the differences
-  for (int i=0; i < width * height; i++){
+  for (int i = 0; i < width * height; i++){
     ored[i] += ogreen[i];
     ored[i] *= 1.565476;
     oblue[i] += ogreen[i];
@@ -901,7 +903,7 @@ void bilinear_red_blue(
   }
 
   free(mask);
-} // biliniear_red_blue()
+} // bilinear_red_blue()
 
 
 
@@ -948,6 +950,20 @@ void demosaic_nlmeans(
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
 
+#ifdef DUMP_STAGES
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      tiff_dump[p] = ired[p];
+      tiff_dump[p + width * height] = 0;
+      tiff_dump[p + 2 * width * height] = 0;
+    }
+  }
+  /* TIFF RGB float->8bit output */
+  write_tiff_rgb_f32("red-test.tiff", tiff_dump, width, height);
+#endif
+}
+/*
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       int p = y * width + x;
@@ -1079,24 +1095,12 @@ void demosaic_nlmeans(
       }
     }
   }
-#ifdef DUMP_STAGES
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int p = y * width + x;
-      tiff_dump[p] = ired[p];
-      tiff_dump[p + width * height] = 0;
-      tiff_dump[p + 2 * width * height] = 0;
-    }
-  }
-  /* TIFF RGB float->8bit output */
-  write_tiff_rgb_f32("red-test.tiff", tiff_dump, width, height);
-#endif
 
   delete[] cfamask;
   delete[] lut;
 }
 
-
+*/
 
 
 /**
@@ -1210,7 +1214,9 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
 
 
 void ssd_demosaic_chain(
-  float *input,
+  float *ired,
+  float *igreen,
+  float *iblue,
   float *ored,
   float *ogreen,
   float *oblue,
@@ -1220,9 +1226,6 @@ void ssd_demosaic_chain(
   int origHeight
 ) {
 
-  float *ired = NULL;
-  float *igreen = NULL;
-  float *iblue = NULL;
   ////////////////////////////////////////////// Process
 
   float h;
@@ -1231,11 +1234,17 @@ void ssd_demosaic_chain(
   int iter = 1;
   int projflag = 1;
   float threshold = 2.0;
+  float *data_out;
+  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * height * 3))) {
+    fprintf(stderr, "allocation error. not enough memory?\n");
+    exit(0);
+  }
 
-  adams_hamilton(threshold, input, ored, ogreen, oblue, width, height, origWidth, origHeight);
+  adams_hamilton(threshold, ired, igreen, iblue, ored, ogreen, oblue, width, height, origWidth, origHeight);
 
 
 /*
+
   h = 16.0;
   demosaic_nlmeans(
     dbloc,

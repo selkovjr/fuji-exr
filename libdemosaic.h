@@ -81,7 +81,9 @@
  */
 void adams_hamilton(
   float threshold,
-  float *input,
+  float *ired,
+  float *igreen,
+  float *iblue,
   float *ored,
   float *ogreen,
   float *oblue,
@@ -198,7 +200,9 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
 
 
 void ssd_demosaic_chain(
-  float *input,
+  float *ired,
+  float *igreen,
+  float *iblue,
   float *ored,
   float *ogreen,
   float *oblue,
