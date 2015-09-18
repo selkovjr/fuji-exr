@@ -436,7 +436,7 @@ void adams_hamilton(
   bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight);
 
   free(mask);
-}
+} // adams_hamilton();
 
 
 
@@ -484,22 +484,13 @@ void bilinear_red_blue(
         // The raw image has zeroes in all channels outside the sensor area
         if (y % 2 == 0) {
           mask[p] = GREENPOSITION;
-          // ored[p] = 500;
-          // ogreen[p] = 65535;
-          // oblue[p] = 500;
         }
         else {
           if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
             mask[p] = REDPOSITION;
-            // ored[p] = 65535;
-            // ogreen[p] = 500;
-            // oblue[p] = 500;
           }
           else {
             mask[p] = BLUEPOSITION;
-            // ored[p] = 500;
-            // ogreen[p] = 500;
-            // oblue[p] = 65535;
           }
         }
       }
@@ -910,7 +901,7 @@ void bilinear_red_blue(
   }
 
   free(mask);
-}
+} // biliniear_red_blue()
 
 
 
@@ -930,33 +921,59 @@ void bilinear_red_blue(
  */
 
 
-void demosaic_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height)
-{
+void demosaic_nlmeans(
+  int bloc,
+  float h,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  float *ired,
+  float *igreen,
+  float *iblue,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+) {
+  float *tiff_dump;
+  if (NULL == (tiff_dump = (float *) malloc(sizeof(float) * width * height * 3))) {
+    fprintf(stderr, "allocation error. not enough memory?\n");
+    exit(0);
+  }
 
-
-  // Initializations
-  int bluex = 1 - redx;
-  int bluey = 1 - redy;
-
-
-
-  // CFA Mask of color per pixel
+  // CFA Mask indicating which color each sensor pixel has
   unsigned char *cfamask = new unsigned char[width*height];
 
+  wxCopy(ired, ored, width * height);
+  wxCopy(igreen, ogreen, width * height);
+  wxCopy(iblue, oblue, width * height);
 
-  for(int x=0;x<width;x++)
-    for(int y=0;y<height;y++){
-
-      if (x%2 == redx && y%2 == redy) cfamask[y*width+x] = REDPOSITION;
-      else  if (x%2 == bluex && y%2 == bluey) cfamask[y*width+x] = BLUEPOSITION;
-      else  cfamask[y*width+x] = GREENPOSITION;
-
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      if (
+        x + y >= origWidth - 1 &&                   // NW boundary
+        y > x - origWidth - 1 &&                    // NE boundary
+        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
+        x > y - origWidth                           // SW boundary
+      ) {
+        if (y % 2 == 0) {
+          cfamask[p] = GREENPOSITION;
+        }
+        else {
+          if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
+            cfamask[p] = REDPOSITION;
+          }
+          else {
+            cfamask[p] = BLUEPOSITION;
+          }
+        }
+      }
+      else {
+        cfamask[p] = BLANK;
+      }
     }
-
-
-  wxCopy(ired,ored,width*height);
-  wxCopy(igreen,ogreen,width*height);
-  wxCopy(iblue,oblue,width*height);
+  }
 
 
 
@@ -967,101 +984,116 @@ void demosaic_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igr
   sFillLut(lut, luttaille);
 
 
-
-
   // for each pixel
-  for(int y=2; y <height-2; y++)
-    for(int x=2; x<width-2; x++)
-    {
-      // index of current pixel
-      int l=y*width+x;
+  for (int y = 2; y < height - 2; y++) {
+    for (int x = 2; x < width - 2; x++) {
+      int p = y * width + x;
+      if (
+        cfamask[p] != BLANK &&
+        (
+         x + y < origWidth + 3 ||                    // NW boundary
+         x >= y + origWidth - 3 ||                   // NE boundary
+         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
+         y >= x + origWidth - 4                      // SW boundary
+        )
+      ) {
+        printf("x: %d, y: %d\n", x, y);
+        // Learning zone depending on the window size
+        int imin = MAX(x - bloc, 1);
+        int jmin = MAX(y - bloc, 1);
+
+        int imax = MIN(x + bloc, width - 2);
+        int jmax = MIN(y + bloc, height - 2);
+        printf("imin: %d, jmin: %d, imax: %d, jmax: %d\n", imin, jmin, imax, jmax);
 
 
-      // Learning zone depending on the window size
-      int imin=MAX(x-bloc,1);
-      int jmin=MAX(y-bloc,1);
+        // auxiliary variables for computing average
+        float red = 0.0;
+        float green = 0.0;
+        float blue = 0.0;
 
-      int imax=MIN(x+bloc,width-2);
-      int jmax=MIN(y+bloc,height-2);
-
-
-      // auxiliary variables for computing average
-      float red=0.0;
-      float green=0.0;
-      float blue=0.0;
-
-      float rweight=0.0;
-      float gweight=0.0;
-      float bweight=0.0;
+        float rweight = 0.0;
+        float gweight = 0.0;
+        float bweight = 0.0;
 
 
-      // for each pixel in the neighborhood
-      for(int j=jmin;j<=jmax;j++)
-        for(int i=imin;i<=imax;i++) {
+        // for each pixel in the neighborhood
+        for (int j = jmin; j <= jmax; j++)
+          for (int i = imin; i <= imax; i++) {
 
-          // index of neighborhood pixel
-          int l0=j*width+i;
+            // index of neighborhood pixel
+            int n = j * width + i;
+            ired[n] = 50000;
 
-          // We only interpolate channels differents of the current pixel channel
-          if (cfamask[l]!=cfamask[l0]) {
-
-
-            // Distances computed on color
-            float some = 0.0;
-
-            some = l2_distance_r1(ired,  x, y, i,
-                        j, width);
-            some += l2_distance_r1(igreen,  x, y, i,
-                         j, width);
-            some += l2_distance_r1(iblue,  x, y, i,
-                         j, width);
+            // We only interpolate channels other than the current pixel channel
+            if (cfamask[p] != cfamask[n]) {
 
 
+              printf("mask[%d] -> [%d] (%d, %d) -> (%d, %d): ", cfamask[p], cfamask[n], x, y, i, j);
 
-            // Compute weight
-            some= some / (27.0 * h);
+              // Distances computed on color
+              float sum = 0.0;
 
-            float weight = sLUT(some,lut);
+              sum = l2_distance_r1(ired,  x, y, i, j, width);
 
-            // Add pixel to corresponding channel average
 
-            if (cfamask[l0] == GREENPOSITION)  {
+              sum += l2_distance_r1(igreen,  x, y, i, j, width);
+              sum += l2_distance_r1(iblue,  x, y, i, j, width);
+              printf("%f\n", sum);
 
-              green += weight*igreen[l0];
-              gweight+= weight;
 
-            } else if (cfamask[l0] == REDPOSITION) {
+              // Compute weight
+              sum= sum / (27.0 * h);
 
-              red += weight*ired[l0];
-              rweight+= weight;
+              float weight = sLUT(sum,lut);
 
-            } else {
+              // Add pixel to corresponding channel average
 
-              blue += weight*iblue[l0];
-              bweight+= weight;
+              if (cfamask[n] == GREENPOSITION)  {
+                green += weight * igreen[n];
+                gweight+= weight;
+              }
+              else if (cfamask[n] == REDPOSITION) {
+                red += weight * ired[n];
+                rweight+= weight;
+              }
+              else {
+                blue += weight * iblue[n];
+                bweight+= weight;
+              }
+
             }
 
           }
 
-        }
 
+        // Set value to current pixel
+        if (cfamask[p] != GREENPOSITION && gweight > fTiny)  ogreen[p]  =   green / gweight;
+        else  ogreen[p] = igreen[p];
 
-      // Set value to current pixel
-      if (cfamask[l] != GREENPOSITION && gweight > fTiny)  ogreen[l]  =   green / gweight;
-      else  ogreen[l] = igreen[l];
+        if ( cfamask[p] != REDPOSITION && rweight > fTiny)  ored[p]  =  red / rweight ;
+        else    ored[p] = ired[p];
 
-      if ( cfamask[l] != REDPOSITION && rweight > fTiny)  ored[l]  =  red / rweight ;
-      else    ored[l] = ired[l];
-
-      if  (cfamask[l] != BLUEPOSITION && bweight > fTiny)   oblue[l] =  blue / bweight;
-      else  oblue[l] = iblue[l];
-
-
+        if  (cfamask[p] != BLUEPOSITION && bweight > fTiny)   oblue[p] =  blue / bweight;
+        else  oblue[p] = iblue[p];
+      }
     }
+  }
+#ifdef DUMP_STAGES
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      tiff_dump[p] = ired[p];
+      tiff_dump[p + width * height] = 0;
+      tiff_dump[p + 2 * width * height] = 0;
+    }
+  }
+  /* TIFF RGB float->8bit output */
+  write_tiff_rgb_f32("red-test.tiff", tiff_dump, width, height);
+#endif
 
   delete[] cfamask;
   delete[] lut;
-
 }
 
 
@@ -1130,16 +1162,12 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
           else ogreen[l]=igreen[l];
 
         }
-
     }
-
 
     wxCopy(ored,ired,size);
     wxCopy(ogreen,igreen,size);
     wxCopy(oblue,iblue,size);
-
   }
-
 
   // delete auxiliary memory
   delete[] y;
@@ -1192,6 +1220,9 @@ void ssd_demosaic_chain(
   int origHeight
 ) {
 
+  float *ired = NULL;
+  float *igreen = NULL;
+  float *iblue = NULL;
   ////////////////////////////////////////////// Process
 
   float h;
@@ -1201,13 +1232,26 @@ void ssd_demosaic_chain(
   int projflag = 1;
   float threshold = 2.0;
 
-
   adams_hamilton(threshold, input, ored, ogreen, oblue, width, height, origWidth, origHeight);
 
 
-
-//  h = 16.0;
-//  demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
+/*
+  h = 16.0;
+  demosaic_nlmeans(
+    dbloc,
+    h,
+    ored,
+    ogreen,
+    oblue,
+    ired,
+    igreen,
+    iblue,
+    width,
+    height,
+    origWidth,
+    origHeight
+  );
+*/
 //   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 //
 //

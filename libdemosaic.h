@@ -130,7 +130,20 @@ void bilinear_red_blue(
  */
 
 
-void demosaic_nlmeans(int bloc, float h,int redx,int redy,float *ired,float *igreen,float *iblue,float *ored,float *ogreen,float *oblue,int width,int height);
+void demosaic_nlmeans(
+  int bloc,
+  float h,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  float *ired,
+  float *igreen,
+  float *iblue,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+);
 
 
 
