@@ -50,8 +50,8 @@
 
 
 #define BLANK 0
-#define GREENPOSITION 1
-#define REDPOSITION 2
+#define REDPOSITION 1
+#define GREENPOSITION 2
 #define BLUEPOSITION 3
 
 #define DIAG 1.4142136
@@ -908,15 +908,25 @@ void bilinear_red_blue(
 
 
 /**
- * \brief  NLmeans based demosaicking
+ * \brief  NLmeans-based demosaicking
  *
  * For each value to be filled, a weigthed average of original CFA values of the same channel is performed.
  * The weight depends on the difference of a 3x3 color patch
  *
+ *  NLM(u)(x) = Σ|y ∈ Ω| w(x, y) * u(y), where:
+ *
+ *  u is a color channel
+ *  Ω is the domain of u (the entire color plane)
+ *  w(x, y) = 1/wx exp(-L2((Patch(x) - Patch(y)) / 2 * h^2))
+ *  wx = Σ|y ∈ Ω| exp(-L2((Patch(x) - Patch(y)) / 2 * h^2))
+ *
+ *  High similarty between patches Patch(x) and Patch(y) is reflected in
+ *  a higher weight w(x, y).
+ *
  * @param[in]  ired, igreen, iblue  initial demosaicked image
  * @param[out] ored, ogreen, oblue  demosaicked output
  * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
- * @param[in]  bloc  research block of size (2+bloc+1) x (2*bloc+1)
+ * @param[in]  bloc search block of size (2+bloc+1) x (2*bloc+1)
  * @param[in]  h kernel bandwidth
  * @param[in]  width, height size of the image
  *
@@ -926,12 +936,12 @@ void bilinear_red_blue(
 void demosaic_nlmeans(
   int bloc,
   float h,
-  float *ored,
-  float *ogreen,
-  float *oblue,
   float *ired,
   float *igreen,
   float *iblue,
+  float *ored,
+  float *ogreen,
+  float *oblue,
   int width,
   int height,
   int origWidth,
@@ -950,20 +960,7 @@ void demosaic_nlmeans(
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
 
-#ifdef DUMP_STAGES
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int p = y * width + x;
-      tiff_dump[p] = ired[p];
-      tiff_dump[p + width * height] = 0;
-      tiff_dump[p + 2 * width * height] = 0;
-    }
-  }
-  /* TIFF RGB float->8bit output */
-  write_tiff_rgb_f32("red-test.tiff", tiff_dump, width, height);
-#endif
-}
-/*
+
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       int p = y * width + x;
@@ -992,29 +989,27 @@ void demosaic_nlmeans(
   }
 
 
-
-  // Tabulate the function Exp(-x) for x>0.
-  int luttaille = (int) (LUTMAX*LUTPRECISION);
+  // Tabulate the function Exp(-x) for x > 0.
+  int luttaille = (int) (LUTMAX * LUTPRECISION);
   float *lut = new float[luttaille];
-
   sFillLut(lut, luttaille);
 
 
-  // for each pixel
+  // for each pixel in the interior
   for (int y = 2; y < height - 2; y++) {
     for (int x = 2; x < width - 2; x++) {
       int p = y * width + x;
       if (
-        cfamask[p] != BLANK &&
+        cfamask[p] != BLANK and
         (
-         x + y < origWidth + 3 ||                    // NW boundary
-         x >= y + origWidth - 3 ||                   // NE boundary
-         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
-         y >= x + origWidth - 4                      // SW boundary
+         x + y >= origWidth + 3 + bloc - 1 and                    // NW boundary
+         x < y + origWidth - 3 - bloc + 1 and                   // NE boundary
+         x + y < origWidth + 2 * origHeight - 5 - bloc + 1 and  // SE boundary
+         y < x + origWidth - 4 - bloc + 1                      // SW boundary
         )
       ) {
         printf("x: %d, y: %d\n", x, y);
-        // Learning zone depending on the window size
+        // Learning zone depending on window size
         int imin = MAX(x - bloc, 1);
         int jmin = MAX(y - bloc, 1);
 
@@ -1034,12 +1029,11 @@ void demosaic_nlmeans(
 
 
         // for each pixel in the neighborhood
-        for (int j = jmin; j <= jmax; j++)
+        for (int j = jmin; j <= jmax; j++) {
           for (int i = imin; i <= imax; i++) {
 
             // index of neighborhood pixel
             int n = j * width + i;
-            ired[n] = 50000;
 
             // We only interpolate channels other than the current pixel channel
             if (cfamask[p] != cfamask[n]) {
@@ -1059,38 +1053,47 @@ void demosaic_nlmeans(
 
 
               // Compute weight
-              sum= sum / (27.0 * h);
+              sum /= (27.0 * h);
 
-              float weight = sLUT(sum,lut);
+              // weight = exp(-sum)
+              float weight = sLUT(sum, lut);
+              printf(", sum/: %f, weight: %f\n", sum);
 
               // Add pixel to corresponding channel average
-
               if (cfamask[n] == GREENPOSITION)  {
+                // printf("increasing weight and adding %f to green channel average %f\n", weight * igreen[n], green);
                 green += weight * igreen[n];
-                gweight+= weight;
+                gweight += weight;
               }
               else if (cfamask[n] == REDPOSITION) {
                 red += weight * ired[n];
-                rweight+= weight;
+                rweight += weight;
               }
               else {
                 blue += weight * iblue[n];
-                bweight+= weight;
+                bweight += weight;
               }
 
             }
 
           }
+        }
 
 
         // Set value to current pixel
         if (cfamask[p] != GREENPOSITION && gweight > fTiny)  ogreen[p]  =   green / gweight;
-        else  ogreen[p] = igreen[p];
+        else ogreen[p] = igreen[p];
 
-        if ( cfamask[p] != REDPOSITION && rweight > fTiny)  ored[p]  =  red / rweight ;
-        else    ored[p] = ired[p];
+        printf("testing %d: %f <> %f\n", cfamask[p], rweight, fTiny);
+        if ( cfamask[p] != REDPOSITION && rweight > fTiny) {
+          printf("correcting red by %f\n", red / rweight);
+          ored[p] = red / rweight;
+        }
+        else {
+          ored[p] = ired[p];
+        }
 
-        if  (cfamask[p] != BLUEPOSITION && bweight > fTiny)   oblue[p] =  blue / bweight;
+        if (cfamask[p] != BLUEPOSITION && bweight > fTiny)   oblue[p] =  blue / bweight;
         else  oblue[p] = iblue[p];
       }
     }
@@ -1098,9 +1101,21 @@ void demosaic_nlmeans(
 
   delete[] cfamask;
   delete[] lut;
-}
 
-*/
+#ifdef DUMP_STAGES
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      tiff_dump[p] = ored[p];
+      tiff_dump[p + width * height] = 0;
+      tiff_dump[p + 2 * width * height] = 0;
+    }
+  }
+  /* TIFF RGB float->8bit output */
+  write_tiff_rgb_f32("red-test.tiff", tiff_dump, width, height);
+#endif
+
+}
 
 
 /**
@@ -1183,15 +1198,13 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
 }
 
 
-/**
- * \brief Demosaicking chain
+/** \brief Demosaicking chain
  *
  *
  *
  * Compute initialization by Adams-Hamilton algorithm (u0)
  *
- * for h in {16,4,1} do
- * {
+ * for h in {16,4,1} do {
  *
  *    u <- NL_h(u0);      Apply NLmeans demosaicking
  *
@@ -1203,11 +1216,23 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
  *
  * Output <- u;
  *
+ * Sketch of the SSD algorithm:
  *
- * @param[in]  ired, igreen, iblue  initial  image
- * @param[out] ored, ogreen, oblue  filtered output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
- * @param[in]  width, height size of the image
+ *  * For u the red, green or blue channel, let Ωu be the domain of u.
+ *
+ *  * For x ∉ Ωu, SID-NLM(u)(x) = Σ|y ∈ Ωu| w(x, y) * u(y), where w is computed
+ *  on an initial color estimate obtained by a standard demosaicking algorithm.
+ *
+ *  * To reduce artefacts caused by the initial estimate, a coarse-to-fine
+ *  strategy is used by iteratively applying SSD-NLM with a decreasing
+ *  sequence of h together with a color regularization step (median filtering
+ *  on chromaticity components).
+ *
+ *
+ * @param[in]  ired, igreen, iblue  initial  image @param[out] ored, ogreen,
+ * oblue  filtered output @param[in]  (redx, redy)  coordinates of the red
+ * pixel: (0,0), (0,1), (1,0), (1,1) @param[in]  width, height size of the
+ * image
  *
  */
 
@@ -1229,7 +1254,8 @@ void ssd_demosaic_chain(
   ////////////////////////////////////////////// Process
 
   float h;
-  int dbloc = 7;
+  //int dbloc = 7;
+  int dbloc = 3;
   float side = 1.5;
   int iter = 1;
   int projflag = 1;
@@ -1242,8 +1268,6 @@ void ssd_demosaic_chain(
 
   adams_hamilton(threshold, ired, igreen, iblue, ored, ogreen, oblue, width, height, origWidth, origHeight);
 
-
-/*
 
   h = 16.0;
   demosaic_nlmeans(
@@ -1260,7 +1284,7 @@ void ssd_demosaic_chain(
     origWidth,
     origHeight
   );
-*/
+
 //   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 //
 //
@@ -1275,5 +1299,3 @@ void ssd_demosaic_chain(
 //   demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
 //   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
 }
-
-

@@ -117,43 +117,32 @@ void wxCopy(float *tpI,float *tpO, int ilength)
  * @param[in]   size    size of the table
  *
  */
-
-
-void  sFillLut(float *lut, int size)
-{
-  for(int i=0; i< size;i++)   lut[i]=   expf( - (float) i / LUTPRECISION);
+void  sFillLut(float *lut, int size) {
+  for (int i = 0; i < size; i++) {
+    lut[i] = expf( -(float)i / LUTPRECISION );
+  }
 }
 
 
 
-
-
-
 /**
- * \brief Compute Exp(-x)
+ * \brief Compute Exp(-x) from tabulated values
  *
  *
  * @param[in]  dif    value of x
  * @param[in]  lut    table of Exp(-x)
  *
  */
+float sLUT(float arg, float *lut) {
+  if (arg >= (float) LUTMAXM1) return 0.0;
 
+  int x = (int)floor((double)arg * (float)LUTPRECISION);
 
-float sLUT(float dif, float *lut)
-{
+  float y1 = lut[x];
+  float y2 = lut[x + 1];
 
-  if (dif >= (float) LUTMAXM1) return 0.0;
-
-  int  x= (int) floor( (double) dif * (float) LUTPRECISION);
-
-  float y1=lut[x];
-  float y2=lut[x+1];
-
-  return y1 + (y2-y1)*(dif*LUTPRECISION -  x);
+  return y1 + (y2 - y1) * (arg * LUTPRECISION - x);
 }
-
-
-
 
 
 
@@ -168,49 +157,52 @@ float sLUT(float dif, float *lut)
  *
  */
 
-float l2_distance_r1(float *u0, int i0, int j0, int i1,
-               int j1, int width)
-{
+float l2_distance_r1(
+  float *u0,
+  int i0, int j0,
+  int i1, int j1,
+  int width
+) {
 
-    float diff, dist = 0.0;
+  float diff, dist = 0.0;
 
-    float *ptr0, *ptr1;
+  float *ptr0, *ptr1;
 
-    ptr0 = u0 + (j0 - 1) * width + i0 - 1;
-    ptr1 = u0 + (j1 - 1) * width + i1 - 1;
+  ptr0 = u0 + (j0 - 1) * width + i0 - 1;
+  ptr1 = u0 + (j1 - 1) * width + i1 - 1;
 
-    /* first line */
+  /* first line */
+  diff = *ptr0++ - *ptr1++;
+  dist += diff * diff;
 
-    diff = *ptr0++ - *ptr1++;
-    dist += diff * diff;
-    diff = *ptr0++ - *ptr1++;
-    dist += diff * diff;
-    diff = *ptr0 - *ptr1;
-    dist += diff * diff;
+  diff = *ptr0++ - *ptr1++;
+  dist += diff * diff;
+  diff = *ptr0 - *ptr1;
+  dist += diff * diff;
 
-    /* second line */
-    ptr0 += width - 2;
-    ptr1 += width - 2;
+  /* second line */
+  ptr0 += width - 2;
+  ptr1 += width - 2;
 
-    diff = *ptr0++ - *ptr1++;
-    dist += diff * diff;
-    diff = *ptr0++ - *ptr1++;
-    dist += diff * diff;
-    diff = *ptr0 - *ptr1;
-    dist += diff * diff;
+  diff = *ptr0++ - *ptr1++;
+  dist += diff * diff;
+  diff = *ptr0++ - *ptr1++;
+  dist += diff * diff;
+  diff = *ptr0 - *ptr1;
+  dist += diff * diff;
 
-    /* third line */
-    ptr0 += width - 2;
-    ptr1 += width - 2;
+  /* third line */
+  ptr0 += width - 2;
+  ptr1 += width - 2;
 
-    diff = *ptr0++ - *ptr1++;
-    dist += diff * diff;
-    diff = *ptr0++ - *ptr1++;
-    dist += diff * diff;
-    diff = *ptr0 - *ptr1;
-    dist += diff * diff;
+  diff = *ptr0++ - *ptr1++;
+  dist += diff * diff;
+  diff = *ptr0++ - *ptr1++;
+  dist += diff * diff;
+  diff = *ptr0 - *ptr1;
+  dist += diff * diff;
 
-    return dist;
+  return dist;
 }
 
 
@@ -320,12 +312,4 @@ int order_float_increasing(const void *a, const void *b)
 void QuickSortFloat(float *arr, int ilength)
 {
     qsort(arr, ilength, sizeof(float), order_float_increasing);
-
 }
-
-
-
-
-
-
-

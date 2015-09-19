@@ -1,7 +1,7 @@
 /*
-* Copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>, 
+* Copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>,
 * All rights reserved.
-*  
+*
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
@@ -55,7 +55,7 @@
  * @file   libAuxiliary.cpp
  * @brief  Standard functions used by demosaicking algorithms
  *
- * 
+ *
  *
  * @author Antoni Buades <toni.buades@uib.es>
  */
@@ -73,7 +73,7 @@
  * V = B - Y
  *
  * @param[in]  r, g, b  input image
- * @param[out] y, u, v  yuv coordinates 
+ * @param[out] y, u, v  yuv coordinates
  * @param[in]  width, height size of the image
  *
  */
@@ -86,14 +86,14 @@ void wxRgb2Yuv(float *r,float *g,float *b,float *y,float *u,float *v,int width,i
  * \brief   YUV to RGB standard conversion
  *
  *
- * @param[in] y, u, v  yuv coordinates 
+ * @param[in] y, u, v  yuv coordinates
  * @param[out]  r, g, b  ouput image
  * @param[in]  width, height size of the image
  *
  */
 
 
-void wxYuv2Rgb(float *r,float *g,float *b,float *y,float *u,float *v, int width,int height); 
+void wxYuv2Rgb(float *r,float *g,float *b,float *y,float *u,float *v, int width,int height);
 
 
 
@@ -101,8 +101,8 @@ void wxYuv2Rgb(float *r,float *g,float *b,float *y,float *u,float *v, int width,
  * \brief  Make a copy of float vector
  *
  *
- * @param[in]  tpI  input vector 
- * @param[out] tpO  copy 
+ * @param[in]  tpI  input vector
+ * @param[out] tpO  copy
  * @param[in]  ilength length of the vector
  *
  */
@@ -149,8 +149,8 @@ void  sFillLut(float *lut,int size);
  *
  */
 
-float sLUT(float dif,float *lut); 
-									 
+float sLUT(float dif,float *lut);
+
 
 
 
