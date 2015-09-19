@@ -408,7 +408,6 @@ void adams_hamilton(
       data_out[p + 2 * width * height] = 0;
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("red-init.tiff", data_out, width, height);
 
   for (int y = 0; y < height; y++) {
@@ -419,7 +418,6 @@ void adams_hamilton(
       data_out[p + 2 * width * height] = 0;
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("green-interpolated.tiff", data_out, width, height);
 
   for (int y = 0; y < height; y++) {
@@ -430,7 +428,6 @@ void adams_hamilton(
       data_out[p + 2 * width * height] = oblue[p];
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("blue-init.tiff", data_out, width, height);
 #endif
 
@@ -516,7 +513,6 @@ void bilinear_red_blue(
       data_out[p + 2 * width * height] = 0;
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("red-diff.tiff", data_out, width, height);
 
   for (int y = 0; y < height; y++) {
@@ -527,7 +523,6 @@ void bilinear_red_blue(
       data_out[p + 2 * width * height] = oblue[p];
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("blue-diff.tiff", data_out, width, height);
 #endif
 
@@ -728,7 +723,6 @@ void bilinear_red_blue(
       data_out[p + 2 * width * height] = oblue[p];
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("blue-diff-interpolated.tiff", data_out, width, height);
 #endif
 
@@ -889,7 +883,6 @@ void bilinear_red_blue(
       data_out[p + 2 * width * height] = 0;
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("red-diff-interpolated.tiff", data_out, width, height);
 #endif
 
@@ -1045,23 +1038,21 @@ void demosaic_nlmeans(
               float sum = 0.0;
 
               sum = l2_distance_r1(ired,  x, y, i, j, width);
-
-
               sum += l2_distance_r1(igreen,  x, y, i, j, width);
               sum += l2_distance_r1(iblue,  x, y, i, j, width);
-              printf("%f\n", sum);
+              printf(", sum: %f", sum);
 
 
               // Compute weight
-              sum /= (27.0 * h);
+              sum /= (65536 * 27.0 * h); // The original was probably tuned to 8-bit images (so the sum is 256^2 larger)
+              // sum /= (4096 * 27.0 * h); // this seems to produce a more agreeable denoising on red
 
               // weight = exp(-sum)
               float weight = sLUT(sum, lut);
-              printf(", sum/: %f, weight: %f\n", sum);
+              printf(", sum/: %f, weight: %f\n", sum, weight);
 
               // Add pixel to corresponding channel average
               if (cfamask[n] == GREENPOSITION)  {
-                // printf("increasing weight and adding %f to green channel average %f\n", weight * igreen[n], green);
                 green += weight * igreen[n];
                 gweight += weight;
               }
@@ -1111,10 +1102,26 @@ void demosaic_nlmeans(
       tiff_dump[p + 2 * width * height] = 0;
     }
   }
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32("red-test.tiff", tiff_dump, width, height);
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      tiff_dump[p] = 0;
+      tiff_dump[p + width * height] = ogreen[p];
+      tiff_dump[p + 2 * width * height] = 0;
+    }
+  }
+  write_tiff_rgb_f32("green-test.tiff", tiff_dump, width, height);
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      tiff_dump[p] = 0;
+      tiff_dump[p + width * height] = 0;
+      tiff_dump[p + 2 * width * height] = oblue[p];
+    }
+  }
+  write_tiff_rgb_f32("blue-test.tiff", tiff_dump, width, height);
 #endif
-
 }
 
 
@@ -1270,6 +1277,7 @@ void ssd_demosaic_chain(
 
 
   h = 16.0;
+  /*
   demosaic_nlmeans(
     dbloc,
     h,
@@ -1284,18 +1292,18 @@ void ssd_demosaic_chain(
     origWidth,
     origHeight
   );
-
-//   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
+*/
+//   chromatic_median(iter,redx,redy,projflag,side,  ired,igreen,iblue,  ored,ogreen,oblue,  width,height);
 //
 //
 //
 //   h = 4.0;
-//   demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
-//   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
+//   demosaic_nlmeans(dbloc,h,redx,redy,  ored,ogreen,oblue,  ired,igreen,iblue,  width,height);
+//   chromatic_median(iter,redx,redy,projflag,side,  ired,igreen,iblue,  ored,ogreen,oblue,  width,height);
 //
 //
 //
 //   h = 1.0;
-//   demosaic_nlmeans(dbloc,h,redx,redy,ored,ogreen,oblue,ired,igreen,iblue,width,height);
-//   chromatic_median(iter,redx,redy,projflag,side,ired,igreen,iblue,ored,ogreen,oblue,width,height);
+//   demosaic_nlmeans(dbloc,h,redx,redy,  ored,ogreen,oblue,  ired,igreen,iblue,  width,height);
+//   chromatic_median(iter,redx,redy,projflag,side,  ired,igreen,iblue,  ored,ogreen,oblue,  width,height);
 }

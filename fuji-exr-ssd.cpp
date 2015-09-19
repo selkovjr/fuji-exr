@@ -134,7 +134,6 @@ int main(int argc, char **argv) {
   /* copy alpha channel */
   memcpy(data_out + 3 * nx * ny, data_in + 3 * nx * ny, nx * ny * sizeof(float));
 
-  /* TIFF RGB float->8bit output */
   write_tiff_rgb_f32(argv[2], data_out, nx, ny);
 
   free(data_in);

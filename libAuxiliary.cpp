@@ -177,6 +177,7 @@ float l2_distance_r1(
 
   diff = *ptr0++ - *ptr1++;
   dist += diff * diff;
+
   diff = *ptr0 - *ptr1;
   dist += diff * diff;
 
@@ -186,8 +187,10 @@ float l2_distance_r1(
 
   diff = *ptr0++ - *ptr1++;
   dist += diff * diff;
+
   diff = *ptr0++ - *ptr1++;
   dist += diff * diff;
+
   diff = *ptr0 - *ptr1;
   dist += diff * diff;
 
@@ -197,18 +200,15 @@ float l2_distance_r1(
 
   diff = *ptr0++ - *ptr1++;
   dist += diff * diff;
+
   diff = *ptr0++ - *ptr1++;
   dist += diff * diff;
+
   diff = *ptr0 - *ptr1;
   dist += diff * diff;
 
   return dist;
 }
-
-
-
-
-
 
 
 /**
@@ -222,10 +222,6 @@ float l2_distance_r1(
  * @param[in]  iWidth, iHeight size of the image
  *
  */
-
-
-
-
 void wxMedian(float *u,float *v, float fRadius, int inIter, int iWidth,int iHeight)
 {
 
