@@ -12,17 +12,12 @@ Fuji EXR filter layout:
 
 ## ABOUT
 
-This software is written by A. Buades <toni.buades@uib.es>
+This software was originally written by A. Buades <toni.buades@uib.es>
 with contributions from Nicolas Limare.
 
-- demosaickingIpol.cpp, libdemosaicking.cpp and libdemosaicking.h
-may be linked to the US patent 5,629,734 by J. Hamilton Jr and
-J. Adams Jr, to the US patent 4,642,678 by  D. Cok and to the
-EP patent 1,749,278 by A. Buades, T. Coll and J.M. Morel.
-They are provided for scientific and education only.
+Adapted to Fuji EXR by Gene Selkov <selkovjr@gmail.com>.
 
-- All the other files are distributed under the terms of the
-  LGPLv3 license.
+All files are distributed under the terms of the LGPLv3 license.
 
 
 ## OVERVIEW

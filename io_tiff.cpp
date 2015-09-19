@@ -118,7 +118,6 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
 static int write_tiff_rgb_raw(const char *fname, const uint16 *data_tiff, size_t nx, size_t ny) {
   TIFF *fp = NULL;
 
-  printf("write_tiff_rgb_raw() -> %d\n", data_tiff[8990 * 3]);
   /*
    * ensure the data is allocated
    * and the width and height are within the limits
@@ -174,8 +173,6 @@ int write_tiff_rgb_f32(const char *fname, const float *data, size_t nx, size_t n
   uint16 *ptr_out;
   size_t i;
   int retval;
-
-  printf("write_tiff_rgb() -> %f\n", data[8990]);
 
   /* check allocaton */
   if (NULL == data)

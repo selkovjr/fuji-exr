@@ -1,4 +1,8 @@
 /*
+* Copyright (c) 2015, Gene Selkov <selkovjr@gmail.com>
+*/
+
+/*
 * Copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>,
 * All rights reserved.
 *
@@ -30,8 +34,6 @@
 
 
 
-
-
 /**
  * \brief  RGV to YUV standard conversion
  *
@@ -46,19 +48,33 @@
  * @param[in]  width, height size of the image
  *
  */
-
-void wxRgb2Yuv(float *r,float *g,float *b,float *y,float *u,float *v,int width,int height)
-{
-  int size=height*width;
-
-  for(int i=0;i<size;i++){
-    y[i] = ( COEFF_YR *  r[i] + COEFF_YG * g[i] + COEFF_YB * b[i]);
-    u[i] =  ( r[i] - y[i]);
-    v[i] =  ( b[i] - y[i]);
+void wxRgb2Yuv(
+  float *r, float *g, float *b,
+  float *Y, float *U, float *V,
+  int width,
+  int height,
+  int origWidth,
+  int origHeight
+) {
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int i = y * width + x;
+      if (
+        x + y >= origWidth - 1 &&                   // NW boundary
+        y > x - origWidth - 1 &&                    // NE boundary
+        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
+        x > y - origWidth                           // SW boundary
+      ) {
+        Y[i] = (COEFF_YR * r[i] + COEFF_YG * g[i] + COEFF_YB * b[i]);
+        U[i] = (r[i] - Y[i]);
+        V[i] = (b[i] - Y[i]);
+      }
+      else {
+        Y[i] = U[i] = V[i] = 0;
+      }
+    }
   }
-
 }
-
 
 
 /**
@@ -70,22 +86,14 @@ void wxRgb2Yuv(float *r,float *g,float *b,float *y,float *u,float *v,int width,i
  * @param[in]  width, height size of the image
  *
  */
+void wxYuv2Rgb(float *r, float *g, float *b, float *y, float *u, float *v, int width, int height) {
+  int iwh = height * width;
 
-
-void wxYuv2Rgb(float *r,float *g,float *b,float *y,float *u,float *v, int width,int height)
-{
-
-
-  int iwh=height*width;
-
-  for(int i=0;i<iwh;i++){
-
-    g[i] =  ( y[i] - COEFF_YR * (u[i] + y[i]) - COEFF_YB * (v[i] +  y[i]) ) / COEFF_YG;
-    r[i] =  ( u[i] + y[i]);
-    b[i] =  ( v[i] + y[i]);
-
+  for(int i=0; i < iwh; i++) {
+    g[i] = (y[i] - COEFF_YR * (u[i] + y[i]) - COEFF_YB * (v[i] +  y[i]) ) / COEFF_YG;
+    r[i] = (u[i] + y[i]);
+    b[i] = (v[i] + y[i]);
   }
-
 }
 
 
@@ -99,13 +107,9 @@ void wxYuv2Rgb(float *r,float *g,float *b,float *y,float *u,float *v, int width,
  * @param[in]  ilength length of the vector
  *
  */
-void wxCopy(float *tpI,float *tpO, int ilength)
-{
+void wxCopy(float *tpI, float *tpO, int ilength) {
   memcpy((void *) tpO, (const void *) tpI, ilength * sizeof(float));
 }
-
-
-
 
 
 
@@ -222,75 +226,79 @@ float l2_distance_r1(
  * @param[in]  iWidth, iHeight size of the image
  *
  */
-void wxMedian(float *u,float *v, float fRadius, int inIter, int iWidth,int iHeight)
-{
-
-
-  int iRadius = (int)(fRadius+1.0);
-  int iNeigSize = (2*iRadius+1)*(2*iRadius+1);
+void wxMedian(
+  float *input,
+  float *output,
+  float fRadius,
+  int inIter,
+  int iWidth,
+  int iHeight,
+  int origWidth,
+  int origHeight
+) {
+  int iRadius = (int)(fRadius + 1.0);
+  int iNeigSize = (2 * iRadius + 1) * (2 * iRadius + 1);
   float fRadiusSqr = fRadius * fRadius;
 
 
-  // Vector to store values of each pixel neighborhood
-  float * vector = new float[iNeigSize];
+  // Vector to store the values of each pixel's neighborhood
+  float *vector = new float[iNeigSize];
 
   // For each iteration
-  for(int n = 0;  n < inIter; n++){
+  for(int n = 0; n < inIter; n++) {
 
     // For each pixel
-    for(int x=0;x < iWidth;x++)
-      for(int y=0;y< iHeight;y++){
+    for (int x = 0; x < iWidth; x++) {
+      for (int y = 0; y < iHeight; y++) {
+        int i = y * iWidth + x;
+        if (
+            x + y >= origWidth - 1 &&                   // NW boundary
+            y > x - origWidth - 1 &&                    // NE boundary
+            x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
+            x > y - origWidth                           // SW boundary
+           ) {
 
-        // Take spatial neighborhood fo radius fRadius
-        int iCount=0;
-        for(int i=-iRadius;i<=iRadius;i++)
-          for(int j=-iRadius;j<=iRadius;j++)
-            if ((float) (i*i + j*j) <= fRadiusSqr){
+          // Take spatial neighborhood of radius fRadius
+          int iCount = 0;
+          for (int i = -iRadius; i <= iRadius; i++) {
+            for (int j= -iRadius; j <= iRadius; j++) {
+              if ((float)(i * i + j * j) <= fRadiusSqr) {
+                int x0 = x + i;
+                int y0 = y + j;
 
-              int x0=x+i;
-              int y0=y+j;
-
-              if (x0 >= 0 && y0 >= 0 && x0 < iWidth && y0 < iHeight) {
-
-                vector[iCount] = u[y0*iWidth+x0];
-                iCount++;
-
+                if (x0 >= 0 && y0 >= 0 && x0 < iWidth && y0 < iHeight) {
+                  vector[iCount] = input[y0 * iWidth + x0];
+                  iCount++;
+                }
               }
-
             }
+          }
 
-        // order neighborhood values
-        QuickSortFloat(vector, iCount);
+          // order neighborhood values
+          QuickSortFloat(vector, iCount);
 
-        v[y*iWidth+x] = vector[iCount / 2];
-
+          output[y * iWidth + x] = vector[iCount / 2];
+        }
+        else {
+          output[i] = 0;
+        }
       }
+    }
 
-    wxCopy(v,u,iWidth*iHeight);
-
+    wxCopy(output, input, iWidth * iHeight);
   }
 
   delete[] vector;
-
 }
 
 
 
-
-
-
-
-
-//increasing order
-
-int order_float_increasing(const void *a, const void *b)
-{
-  if ( *(float*)a  > *(float*)b ) return 1;
-  else if ( *(float*)a  < *(float*)b ) return -1;
-
+// Sort comparator
+int order_float_increasing(const void *a, const void *b) {
+  if (*(float*)a > *(float*)b) return 1;
+  else if (*(float*)a < *(float*)b ) return -1;
   return 0;
 }
-
 
 
 
@@ -303,9 +311,6 @@ int order_float_increasing(const void *a, const void *b)
  * @param[out]  arr      output array
  *
  */
-
-
-void QuickSortFloat(float *arr, int ilength)
-{
-    qsort(arr, ilength, sizeof(float), order_float_increasing);
+void QuickSortFloat(float *arr, int ilength) {
+  qsort(arr, ilength, sizeof(float), order_float_increasing);
 }

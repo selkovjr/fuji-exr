@@ -1,45 +1,25 @@
 /*
-* Copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>
+* Copyright (c) 2015, Gene Selkov <selkovjr@gmail.com>
+*/
+
+/*
+* Portions copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>
 * All rights reserved.
-*
-*
-* Patent warning:
-*
-* This file implements algorithms possibly linked to the patents
-*
-* # J. Hamilton Jr and J. Adams Jr, “Adaptive color plan interpolation
-* in single sensor color electronic camera,” 1997, US Patent 5,629,734.
-*
-* # D. Cok, “Signal processing method and apparatus for producing
-* interpolated chrominance values in a sampled color image signal”,
-* 1987, US Patent 4,642,678.
-*
-* # A. Buades, T. Coll and J.M. Morel, Image data processing method by
-* reducing image noise, and camera integrating means for implementing
-* said method, EP Patent 1,749,278 (Feb. 7, 2007).
-*
-* This file is made available for the exclusive aim of serving as
-* scientific tool to verify the soundness and completeness of the
-* algorithm description. Compilation, execution and redistribution
-* of this file may violate patents rights in certain countries.
-* The situation being different for every country and changing
-* over time, it is your responsibility to determine which patent
-* rights restrictions apply to you before you compile, use,
-* modify, or redistribute this file. A patent lawyer is qualified
-* to make this determination.
-* If and only if they don't conflict with any patent terms, you
-* can benefit from the following license terms attached to this
-* file.
-*
-* License:
-*
-* This program is provided for scientific and educational only:
-* you can use and/or modify it for these purposes, but you are
-* not allowed to redistribute this work or derivative works in
-* source or executable form. A license must be obtained from the
-* patent right holders for any other use.
-*
-*
+*/
+
+/*
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>
 */
 
 /**
@@ -83,8 +63,7 @@ int main(int argc, char **argv) {
 
   /* sanity check */
   if (3 != argc) {
-    fprintf(stderr, "usage : %s input.tiff output.tiff\n",
-        argv[0]);
+    fprintf(stderr, "usage : %s input.tiff output.tiff\n", argv[0]);
     return EXIT_FAILURE;
   }
 
@@ -99,7 +78,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  if (NULL == (data_out = (float *) malloc(sizeof(float) * nx * ny * 3))) {
+  if (NULL == (data_out = (float *) malloc(sizeof(float) * nx * ny * 4))) {
     fprintf(stderr, "allocation error. not enough memory?\n");
     free(data_in);
     return EXIT_FAILURE;
@@ -130,9 +109,6 @@ int main(int argc, char **argv) {
       *out_ptr = 65535;
     out_ptr++;
   }
-
-  /* copy alpha channel */
-  memcpy(data_out + 3 * nx * ny, data_in + 3 * nx * ny, nx * ny * sizeof(float));
 
   write_tiff_rgb_f32(argv[2], data_out, nx, ny);
 

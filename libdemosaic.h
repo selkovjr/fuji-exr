@@ -1,47 +1,26 @@
 /*
-* Copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>
-* All rights reserved.
-*
-*
-* Patent warning:
-*
-* This file implements algorithms possibly linked to the patents
-*
-* # J. Hamilton Jr and J. Adams Jr, “Adaptive color plan interpolation
-* in single sensor color electronic camera,” 1997, US Patent 5,629,734.
-*
-* # D. Cok, “Signal processing method and apparatus for producing
-* interpolated chrominance values in a sampled color image signal”,
-* 1987, US Patent 4,642,678.
-*
-* # A. Buades, T. Coll and J.M. Morel, Image data processing method by
-* reducing image noise, and camera integrating means for implementing
-* said method, EP Patent 1,749,278 (Feb. 7, 2007).
-*
-* This file is made available for the exclusive aim of serving as
-* scientific tool to verify the soundness and completeness of the
-* algorithm description. Compilation, execution and redistribution
-* of this file may violate patents rights in certain countries.
-* The situation being different for every country and changing
-* over time, it is your responsibility to determine which patent
-* rights restrictions apply to you before you compile, use,
-* modify, or redistribute this file. A patent lawyer is qualified
-* to make this determination.
-* If and only if they don't conflict with any patent terms, you
-* can benefit from the following license terms attached to this
-* file.
-*
-* License:
-*
-* This program is provided for scientific and educational only:
-* you can use and/or modify it for these purposes, but you are
-* not allowed to redistribute this work or derivative works in
-* source or executable form. A license must be obtained from the
-* patent right holders for any other use.
-*
-*
+* Copyright (c) 2015, Gene Selkov <selkovjr@gmail.com>
 */
 
+/*
+* Portions copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>
+* All rights reserved.
+*/
+
+/*
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>
+*/
 
 
 #ifndef _LIBDEMOSAIC_H_
@@ -74,7 +53,6 @@
  *
  * @param[in]  ired, igreen, iblue  original cfa image
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
  * @param[in]  threshold value to consider horizontal and vertical variations equivalent and average both estimates
  * @param[in]  width, height size of the image
  *
@@ -100,7 +78,6 @@ void adams_hamilton(
  *
  * @param[in]  ored, ogreen, oblue  original cfa image with green interpolated
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
  * @param[in]  width, height size of the image
  *
  */
@@ -124,7 +101,6 @@ void bilinear_red_blue(
  *
  * @param[in]  ired, igreen, iblue  initial demosaicked image
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
  * @param[in]  bloc  research block of size (2+bloc+1) x (2*bloc+1)
  * @param[in]  h kernel bandwidth
  * @param[in]  width, height size of the image
@@ -156,7 +132,6 @@ void demosaic_nlmeans(
  * @param[in]  ired, igreen, iblue  initial  image
  * @param[in]  iter  number of iteracions
  * @param[out] ored, ogreen, oblue  filtered output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
  * @param[in]  side  median in a (2*side+1) x (2*side+1) window
  * @param[in]  projflag if not zero, values of the original CFA are kept
  * @param[in]  width, height size of the image
@@ -165,7 +140,7 @@ void demosaic_nlmeans(
 
 
 
-void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *ired,float *igreen, float *iblue,float *ored,float *ogreen,float *oblue,int width,int height);
+void chromatic_median(int iter,int ,int projflag,float side,float *ired,float *igreen, float *iblue,float *ored,float *ogreen,float *oblue,int width,int height);
 
 
 
@@ -193,7 +168,6 @@ void chromatic_median(int iter,int redx,int redy,int projflag,float side,float *
  *
  * @param[in]  ired, igreen, iblue  initial  image
  * @param[out] ored, ogreen, oblue  filtered output
- * @param[in]  (redx, redy)  coordinates of the red pixel: (0,0), (0,1), (1,0), (1,1)
  * @param[in]  width, height size of the image
  *
  */

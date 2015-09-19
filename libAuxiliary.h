@@ -1,22 +1,26 @@
 /*
-* Copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>,
-* All rights reserved.
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* Copyright (c) 2015, Gene Selkov <selkovjr@gmail.com>
 */
 
+/*
+* Portions copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>
+* All rights reserved.
+*/
 
+/*
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>
+*/
 
 
 #ifndef _LIBAUXILIARY_H_
@@ -78,7 +82,7 @@
  *
  */
 
-void wxRgb2Yuv(float *r,float *g,float *b,float *y,float *u,float *v,int width,int height);
+void wxRgb2Yuv(float *r,float *g,float *b,float *y,float *u,float *v,int width,int height, int origWidth, int origHeight);
 
 
 
@@ -167,7 +171,7 @@ float sLUT(float dif,float *lut);
  *
  */
 
-void wxMedian(float *u,float *v, float fRadius, int inIter, int iWidth,int iHeight);
+void wxMedian(float *u,float *v, float fRadius, int inIter, int iWidth,int iHeight, int origWidth, int origHeight);
 
 
 

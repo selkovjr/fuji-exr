@@ -6,9 +6,9 @@ import os
 import subprocess
 
 #basename = '141006_163724'
-#basename = '141011_155913'
+basename = '141011_155913'
 #basename = '141016_155913'
-basename = 'test/DSCF3564'
+#basename = 'test/DSCF3564'
 
 frame = []
 
