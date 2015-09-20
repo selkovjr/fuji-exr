@@ -187,6 +187,7 @@ void wxMedian(float *u,float *v, float fRadius, int inIter, int iWidth,int iHeig
 
 void QuickSortFloat(float *arr, int ilength);
 
+void write_image (char *fn, float *red, float *green, float *blue, int width, int height);
 
 
 

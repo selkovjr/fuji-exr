@@ -48,10 +48,13 @@
 
 
 int main(int argc, char **argv) {
-  size_t nx = 0, ny = 0;
+  size_t nx0 = 0, ny0 = 0;
+  size_t nx1 = 0, ny1 = 0;
   char *description;
-  int origWidth;
-  int origHeight;
+  unsigned long origWidth;
+  unsigned long origHeight;
+  unsigned long width;
+  float *frame0, *frame1;
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
 
@@ -62,46 +65,72 @@ int main(int argc, char **argv) {
   }
 
   /* sanity check */
-  if (3 != argc) {
-    fprintf(stderr, "usage : %s input.tiff output.tiff\n", argv[0]);
+  if (4 != argc) {
+    fprintf(stderr, "usage : %s input_0.tiff input_1.tiff output.tiff\n", argv[0]);
     return EXIT_FAILURE;
   }
 
   /* TIFF 16-bit grayscale -> float input */
-  if (NULL == (data_in = read_tiff_gray16_f32(argv[1], &nx, &ny, &description))) {
+  if (NULL == (frame0 = read_tiff_gray16_f32(argv[1], &nx0, &ny0, &description))) {
     fprintf(stderr, "error while reading from %s\n", argv[1]);
     return EXIT_FAILURE;
   }
-
-  if (sscanf(description, "width = %d, height = %d", &origWidth, &origHeight) != 2) {
-    fprintf(stderr, "image description (%s) does not contain a size expression (width = nnnn, height = nnnn)\n", description);
+  if (NULL == (frame1 = read_tiff_gray16_f32(argv[1], &nx1, &ny1, &description))) {
+    fprintf(stderr, "error while reading from %s\n", argv[2]);
     return EXIT_FAILURE;
   }
+  if (nx0 != nx1 or ny0 != ny1) {
+    fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
+    return EXIT_FAILURE;
+  }
+  origWidth = nx0;
+  origHeight = ny0;
+  width = origWidth + origHeight;
 
-  if (NULL == (data_out = (float *) malloc(sizeof(float) * nx * ny * 4))) {
+  if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
     fprintf(stderr, "allocation error. not enough memory?\n");
-    free(data_in);
+    return EXIT_FAILURE;
+  }
+  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
+    fprintf(stderr, "allocation error. not enough memory?\n");
     return EXIT_FAILURE;
   }
 
+  for (unsigned long i = 0; i < width * width * 3; i++) {
+    data_in[i] = 0;
+  }
+  for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
+    unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
+    unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+    unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
+    data_in[y * width + x0] = frame0[i];
+    data_in[y * width + x1] = frame1[i];
+    data_in[y * width + x0 + width * width] = frame0[i];
+    data_in[y * width + x1 + width * width] = frame1[i];
+    data_in[y * width + x0 + width * width * 2] = frame0[i];
+    data_in[y * width + x1 + width * width * 2] = frame1[i];
+  }
+  fprintf(stderr, "merged input frames\n");
+
+  write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
 
   /* process */
   ssd_demosaic_chain(
     data_in,
-    data_in + nx * ny,
-    data_in + 2 * nx * ny,
+    data_in + width * width,
+    data_in + 2 * width * width,
     data_out,
-    data_out + nx * ny,
-    data_out + 2 * nx * ny,
-    (int) nx,
-    (int) ny,
+    data_out + width * width,
+    data_out + 2 * width * width,
+    (int) width,
+    (int) width,
     origWidth,
     origHeight
   );
 
   /* limit to 0-65535 */
   out_ptr = data_out;
-  end_ptr = out_ptr + 3 * nx * ny;
+  end_ptr = out_ptr + 3 * width * width;
   while (out_ptr < end_ptr) {
     if ( 0 > *out_ptr)
       *out_ptr = 0;
@@ -110,7 +139,8 @@ int main(int argc, char **argv) {
     out_ptr++;
   }
 
-  write_tiff_rgb_f32(argv[2], data_out, nx, ny);
+  fprintf(stderr, "writing output to %s\n", argv[3]);
+  write_tiff_rgb_f32(argv[3], data_out, width, width);
 
   free(data_in);
   free(data_out);

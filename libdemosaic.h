@@ -57,7 +57,7 @@
  * @param[in]  width, height size of the image
  *
  */
-void adams_hamilton(
+void g_directional(
   float threshold,
   float *ired,
   float *igreen,

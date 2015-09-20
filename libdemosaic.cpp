@@ -371,11 +371,13 @@ void g_directional(
       }
     }
   }
+  fprintf(stderr, "green channel interpolated\n");
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
   bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight);
 
   free(mask);
+  fprintf(stderr, "demosaic complete\n");
 } // g_directional();
 
 
@@ -626,6 +628,7 @@ void bilinear_red_blue(
       }
     }
   }
+  fprintf(stderr, "R-G interpolated\n");
 
 
   // Interpolate red differences making the average of possible values depending on the CFA location
@@ -775,6 +778,7 @@ void bilinear_red_blue(
       }
     }
   }
+  fprintf(stderr, "B-G interpolated\n");
 
   // Make back the differences
   for (int i = 0; i < width * height; i++){
@@ -919,8 +923,8 @@ void demosaic_nlmeans(
               sum += l2_distance_r1(iblue,  x, y, i, j, width);
 
               // Compute weight
-              sum /= (65536 * 27.0 * h); // The original was probably tuned to 8-bit images (so the sum is 256^2 larger)
-              // sum /= (4096 * 27.0 * h); // this seems to produce a more agreeable denoising on red
+              // sum /= (65536 * 27.0 * h); // The original was probably tuned to 8-bit images (so the sum is 256^2 larger)
+              sum /= (4096 * 27.0 * h); // this seems to produce a more agreeable denoising on red
 
               // weight = exp(-sum)
               float weight = sLUT(sum, lut);
@@ -960,6 +964,7 @@ void demosaic_nlmeans(
 
   delete[] cfamask;
   delete[] lut;
+  fprintf(stderr, "NLM denoising done for h = %f\n", h);
 }
 
 
@@ -1053,6 +1058,7 @@ void chromatic_median(
   delete[] U0;
   delete[] V;
   delete[] V0;
+  fprintf(stderr, "chromatic median done\n");
 }
 
 
@@ -1093,7 +1099,6 @@ void chromatic_median(
  */
 
 
-
 void ssd_demosaic_chain(
   float *ired,
   float *igreen,
@@ -1115,23 +1120,38 @@ void ssd_demosaic_chain(
   int projflag = 1;
   float threshold = 2.0;
 
-  g_directional(threshold,    ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-  //                                  ________________/      /      /
-  //                                /      _________________/      /
-  //                               /      /      _________________/
-  //                              /      /      /
-  demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
+  g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
   //                                            ______/      /      /
-  //                                           /      ______/      /
-  //                                          /      /      ______/
-  //                                         /      /      /
-  chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  //                                          /      _______/      /
+  //                                         /      /      _______/
+  //                                        /      /      /
+  //chromatic_median(iter, projflag, side,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
+  //                                                                \    |    /
+  //                                                                 \   |   /
+  //                                                                   output
 
+  // g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  // write_image("demosaicked.tiff",                    ored, ogreen, oblue,  width, height);
+  // //                                  ________________/      /      /
+  // //                                /      _________________/      /
+  // //                               /      /      _________________/
+  // //                              /      /      /
+  // demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
+  // write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
+  // //                                            ______/      /      /
+  // //                                           /      ______/      /
+  // //                                          /      /      ______/
+  // //                                         /      /      /
+  // chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  // write_image("median-16.tiff",                                 ored, ogreen, oblue,  width, height);
 
-  demosaic_nlmeans(dbloc, 4,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
-  chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  // demosaic_nlmeans(dbloc, 4,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
+  // write_image("nlmeans-4.tiff",                     ired, igreen, iblue,  width, height);
+  // chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  // write_image("median-4.tiff",                                  ored, ogreen, oblue,  width, height);
 
-
-  demosaic_nlmeans(dbloc, 1,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
-  chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  // demosaic_nlmeans(dbloc, 1,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
+  // chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
 }
+
+

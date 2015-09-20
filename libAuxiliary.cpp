@@ -23,6 +23,10 @@
 
 #include "libAuxiliary.h"
 
+#include "io_tiff.h"
+#include "tiffio.h"
+
+
 /**
  * @file   libAuxiliary.cpp
  * @brief  Standard functions used by demosaicking algorithms
@@ -314,3 +318,34 @@ int order_float_increasing(const void *a, const void *b) {
 void QuickSortFloat(float *arr, int ilength) {
   qsort(arr, ilength, sizeof(float), order_float_increasing);
 }
+
+
+void write_image (
+  char *fn,
+  float *red,
+  float *green,
+  float *blue,
+  int width,
+  int height
+) {
+  float *data_out;
+
+  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * height * 3))) {
+    fprintf(stderr, "write_image(): allocation error. not enough memory?\n");
+    exit(EXIT_FAILURE);
+  }
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      data_out[p] = red[p];
+      data_out[p + width * height] = green[p];
+      data_out[p + 2 * width * height] = blue[p];
+    }
+  }
+
+  write_tiff_rgb_f32(fn, data_out, width, height);
+
+  free (data_out);
+}
+

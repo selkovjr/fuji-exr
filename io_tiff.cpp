@@ -77,7 +77,7 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
     *description = strdup(c);
 
   TIFFGetField(fp, TIFFTAG_SAMPLESPERPIXEL, &nsamples);
-  printf("samples: %d, width: %d, height: %d\n", nsamples, width, height);
+  fprintf(stderr, "samples: %d, width: %d, height: %d\n", nsamples, width, height);
 
   /* setup the pointers */
   ptr_r = data;
