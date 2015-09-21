@@ -764,9 +764,9 @@ void bilinear_red_blue(
         }
 
         else if ( // Blue interior (blue does not occur on the west boundaries)
-          mask[p] == BLUEPOSITION &
-          x + y >= origWidth + 2 &&  // exclude NW boundary (even though it should have filled right)
-          x > y - origWidth + 2      // exclude SW boundary (even though it should have filled right)
+          mask[p] == BLUEPOSITION &&
+          x + y >= origWidth + 2 and  // exclude NW boundary (even though it should have filled right)
+          x > y - origWidth + 2       // exclude SW boundary (even though it should have filled right)
         ) {
           if (x % 2 == 0) {
             ored[p] = (ored[n2] / 2 + ored[e2] / 2 + ored[s2] / 2 + ored[w]) / 2.5;
@@ -783,9 +783,9 @@ void bilinear_red_blue(
   // Make back the differences
   for (int i = 0; i < width * height; i++){
     ored[i] += ogreen[i];
-    ored[i] *= 1.565476;
+    // ored[i] *= 1.565476;
     oblue[i] += ogreen[i];
-    oblue[i] *= 1.845238;
+    // oblue[i] *= 1.845238;
   }
 
   free(mask);
