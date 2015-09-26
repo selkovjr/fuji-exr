@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
   float *frame0, *frame1;
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
+  bool landscape = false;
 
   /* version info */
   if (2 <= argc && 0 == strcmp("-v", argv[1])) {
@@ -100,15 +101,44 @@ int main(int argc, char **argv) {
     data_in[i] = 0;
   }
   for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
-    unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
-    unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-    unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
-    data_in[y * width + x0] = frame0[i];
-    data_in[y * width + x1] = frame1[i];
-    data_in[y * width + x0 + width * width] = frame0[i];
-    data_in[y * width + x1 + width * width] = frame1[i];
-    data_in[y * width + x0 + width * width * 2] = frame0[i];
-    data_in[y * width + x1 + width * width * 2] = frame1[i];
+    if (origWidth > origHeight) {
+      // Landscape
+      //
+      // B........G
+      // ..........
+      // ..........
+      // G........R
+      //
+      landscape = true;
+      unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
+      unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+      unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
+      data_in[y * width + x0] = frame0[i];
+      data_in[y * width + x1] = frame1[i];
+      data_in[y * width + x0 + width * width] = frame0[i];
+      data_in[y * width + x1 + width * width] = frame1[i];
+      data_in[y * width + x0 + width * width * 2] = frame0[i];
+      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    }
+    else {
+      // Portrait 270° CW
+      //
+      //  G.....R
+      //  .......
+      //  .......
+      //  .......
+      //  B.....G
+      //
+      unsigned long x0 = origHeight - 1 + i % origWidth - (unsigned long)(i / origWidth);
+      unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+      unsigned long y = i % origWidth + (unsigned long)(i / origWidth);
+      data_in[y * width + x0] = frame0[i];
+      data_in[y * width + x1] = frame1[i];
+      data_in[y * width + x0 + width * width] = frame0[i];
+      data_in[y * width + x1 + width * width] = frame1[i];
+      data_in[y * width + x0 + width * width * 2] = frame0[i];
+      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    }
   }
   fprintf(stderr, "merged input frames\n");
 
@@ -124,8 +154,8 @@ int main(int argc, char **argv) {
     data_out + 2 * width * width,
     (int) width,
     (int) width,
-    origWidth,
-    origHeight
+    landscape ? origWidth : origHeight,
+    landscape ? origHeight : origWidth
   );
 
   /* limit to 0-65535 */

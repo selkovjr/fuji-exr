@@ -924,8 +924,7 @@ void demosaic_nlmeans(
               sum += l2_distance_r1(iblue,  x, y, i, j, width);
 
               // Compute weight
-              // sum /= (65536 * 27.0 * h); // The original was probably tuned to 8-bit images (so the sum is 256^2 larger)
-              sum /= (32768 * 27.0 * h);
+              sum /= (65536 * 27.0 * h); // The original was probably tuned to 8-bit images (so the sum is 256^2 larger)
               // sum /= (8192 * 27.0 * h); // this seems to produce a more agreeable denoising on red
 
               // weight = exp(-sum)
