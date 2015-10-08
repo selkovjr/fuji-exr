@@ -54,6 +54,7 @@ Simply use the provided makefile, with the command `make`.
 
 ## REFERENCES / FOOD FOR THOUGHT
 
+date | authors | title
 ---|---|---
 2015-07-07 | Joan Duran, Antoni Buades | [A Demosaicking Algorithm with Adaptive Inter-channel Correlation](http://www.ipol.im/pub/pre/145/preprint.pdf)
 2014 | Alan Gibson | [Demosaicing with ImageMagic](http://im.snibgo.com/demosaic.htm)
