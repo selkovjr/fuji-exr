@@ -46,7 +46,8 @@ Simply use the provided makefile, with the command `make`.
 ## USAGE
 
 ```
-./fuji-exr-ssd raw.tiff out.tiff
+dcraw -v -w -d -s -all -6 -T -b 0.7 raw.RAF # writes two Bayer frames: raw_0.tiff and raw_1.tiff
+./fuji-exr-ssd raw_[01].tiff out.tiff # merges Bayer frames into a super-resolution EXR pattern, tilted 45 degrees; decodes in-place
 ```
 
 * `raw.tiff`  :  camera sensor data in 16-bit grayscale
