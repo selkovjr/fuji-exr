@@ -46,12 +46,16 @@ Simply use the provided makefile, with the command `make`.
 ## USAGE
 
 ```
-dcraw -v -w -d -s -all -6 -T -b 0.7 raw.RAF # writes two Bayer frames: raw_0.tiff and raw_1.tiff
-./fuji-exr-ssd raw_[01].tiff out.tiff # merges Bayer frames into a super-resolution EXR pattern, tilted 45 degrees; decodes in-place
+dcraw -v -w -d -s -all -6 -T -b 0.7 raw.RAF
+./fuji-exr-ssd raw_[01].tiff out.tiff
 ```
 
-* `raw.tiff`  :  camera sensor data in 16-bit grayscale
-* `output.tiff` :  demosaicked RGB output
+* `raw.RAF`: Fuji raw image, shot in EXR high-res mode, or in P-mode
+* `raw_[01].tiff`:  camera sensor data in 16-bit grayscale (Bayer), two frames
+* `out.tiff`:  demosaicked RGB output, rotated 45 degrees
+
+Presently supported camera orientations: landscape (horizontal), portrait (270CCW). Other orientations need more work (interleaving rules are different for each).
+
 
 ## REFERENCES / FOOD FOR THOUGHT
 
