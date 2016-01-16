@@ -1,19 +1,19 @@
-COBJ	= io_png.o
-CXXOBJ	= libauxiliar.o libdemosaicking.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
+COBJ = io_png.o
+CXXOBJ = libauxiliar.o libdemosaicking.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
 
-BIN	= demosaicking_ipol imdiff_ipol duran-buades
+BIN = demosaicking_ipol imdiff_ipol duran-buades
 
 hdrdir= -I/usr/local/include/ -I/usr/include/
 libdir= -L/usr/local/lib/ -L/usr/lib/
 
-COPT	= -O3 -funroll-loops -fomit-frame-pointer  -Wall -Wextra
+COPT = -g -O3 -funroll-loops -fomit-frame-pointer  -Wall -Wextra
 CFLAGS  += $(COPT) $(hdrdir)
 
 LDFLAGS +=  $(libdir) -lpng
 
 # use openMP with `make OMP=1`
 ifdef OMP
-CFLAGS	+= -fopenmp
+CFLAGS += -fopenmp
 LDFLAGS += -lgomp
 endif
 
@@ -31,3 +31,14 @@ $(BIN) : % : %.o  io_png.o libauxiliar.o libdemosaicking.o
 .PHONY : clean
 clean:
 	$(RM) $(COBJ) $(CXXOBJ) ; rm -f $(BIN)
+
+sample: 151018_180328.RAF
+	#dcraw -v -w -d -s all -6 -b 1.7 151018_180328.RAF
+	dcraw -v -w -s all -4 151018_180328.RAF
+	convert 151018_180328_0.pgm -crop 252x276+1116+1416 +repage fragment-0.png
+	convert 151018_180328_1.pgm -crop 252x276+1116+1416 +repage fragment-1.png
+	convert 151018_180328.JPG -crop 276x252+1576+1106 fragment.jpeg
+
+test:
+	./duran-buades fragment-0.png out-0.png 1
+	./duran-buades fragment-1.png out-1.png 1

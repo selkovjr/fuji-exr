@@ -35,19 +35,16 @@
 #include "io_png.h"
 #include <string.h>
 
-// Usage: demosaicking_ipol truth.png mosaicked.png demosaicked.png beta
+// Usage: duran-buades bayer.png decoded.png beta
 
 int main(int argc, char **argv) {
-  if (argc < 5) {
-    printf("usage: demosaicking_ipol truth.png mosaicked.png "
-        "demosaicked.png beta\n\n");
-    printf("truth.png       :: full color RGB image.\n");
-    printf("mosaicked.png   :: oberseved mosaicked image.\n");
-    printf("demosaicked.png :: full color demosaicked image.\n");
-    printf("beta            :: fixed channel-correlation parameter.\n");
+  if (argc < 4) {
+    printf("usage: duran-buades bayer.png decoded.png beta\n\n");
+    printf("bayer.png   :: input Bayer-encoded image (gray scale).\n");
+    printf("decoded.png :: demosaicked image.\n");
+    printf("beta        :: fixed channel-correlation parameter.\n");
     printf("\n");
-    printf("The following parameters are fixed in the main demo "
-        "function:\n");
+    printf("The following parameters are fixed in main():\n");
     printf("epsilon   :: thresholding parameter avoiding numerical\n"
         "             intrincacies when computing local variation of\n"
         "             chromatic components.\n");
@@ -63,34 +60,30 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  // Read full color reference image
+  // Read Bayer-encoded image
   size_t nx, ny, nc;
-  float *d_v = NULL;
+  float *mosaicked = NULL;
 
-  d_v = io_png_read_f32(argv[1], &nx, &ny, &nc);
+  mosaicked = io_png_read_f32(argv[1], &nx, &ny, &nc);
 
-  if (!d_v) {
+  printf("%d\n", (int)nc);
+  if (!mosaicked) {
     fprintf(stderr, "Error - %s not found  or not a correct png image.\n", argv[1]);
     return EXIT_FAILURE;
   }
 
-  if (nc > 3)  // Use only RGB image
-    nc = 3;
-
-  // Variables of reference image
-  int width = (int) nx;
-  int height = (int) ny;
-  int num_channels = (int) nc;
-  int dim = width * height;
-  int dimchannels = num_channels * dim;
-
-  float **truth = new float*[num_channels];
-  for (int c = 0; c < num_channels; c++) {
-    truth[c] = &d_v[c*dim];
+  if (nc != 1) { // Use only RGB image
+    fprintf(stderr, "Error - %s expecting a gray-scale PNG image.\n", argv[1]);
+    return EXIT_FAILURE;
   }
 
+  // Input image parameters
+  int width = (int) nx;
+  int height = (int) ny;
+  int dim = width * height;
+
   // Input parameters
-  float beta = atof(argv[4]);
+  float beta = atof(argv[3]);
 
   if ((beta < 0.0f) || (beta > 1.0f)) {
     fprintf(stderr, "Error - beta must be in range (0,1].\n");
@@ -111,36 +104,28 @@ int main(int argc, char **argv) {
   int reswind = 10;
   int compwind = 1;
   int N = 10;
-  int redx = 0;
+  int redx = 1;
   int redy = 0;
 
-
-  // Simulate mosaicked image
-  float **mosaicked = new float*[num_channels];
-  for (int c = 0; c < num_channels; c++)
-    mosaicked[c] = new float[dim];
-
-  if (CFAimage(truth[0], truth[1], truth[2], mosaicked[0], mosaicked[1], mosaicked[2], redx, redy, width, height) != 1)
-    return EXIT_FAILURE;
-
+  int num_channels = 3;
 
   // Demosaicking process
   float **demosaicked = new float*[num_channels];
   for (int c = 0; c < num_channels; c++)
     demosaicked[c] = new float[dim];
 
-  if (algorithm_chain(mosaicked[0], mosaicked[1], mosaicked[2], demosaicked[0],
+  if (algorithm_chain(mosaicked, mosaicked, mosaicked, demosaicked[0],
         demosaicked[1], demosaicked[2], beta, h, epsilon, M,
         halfL, reswind, compwind, N, redx, redy, width,
         height) != 1)
     return EXIT_FAILURE;
 
-  // Save mosaicked image in png format
-  float *image_png = new float[dimchannels];
+  // Save demosaicked image in png format
+  float *image_png = new float[dim * 3];
   int k = 0;
   for (int c = 0; c < num_channels; c++)
     for (int i = 0; i < dim; i++) {
-      image_png[k] = mosaicked[c][i];
+      image_png[k] = demosaicked[c][i];
       k++;
     }
 
@@ -149,30 +134,14 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  // Save demosaicked image in png format
-  k = 0;
-  for (int c = 0; c < num_channels; c++)
-    for (int i = 0; i < dim; i++) {
-      image_png[k] = demosaicked[c][i];
-      k++;
-    }
-
-  if (io_png_write_f32(argv[3], image_png, (size_t) width, (size_t) height, (size_t) num_channels) != 0) {
-    fprintf(stderr, "Error - Failed to save png image %s.\n", argv[3]);
-    return EXIT_FAILURE;
-  }
-
   // Delete allocated memory
   delete[] image_png;
-  delete[] truth;
-  free(d_v);
+  free(mosaicked);
 
   for (int c = 0; c < num_channels; c++) {
-    delete[] mosaicked[c];
     delete[] demosaicked[c];
   }
 
-  delete[] mosaicked;
   delete[] demosaicked;
 
   return EXIT_SUCCESS;
