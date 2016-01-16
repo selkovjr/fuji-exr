@@ -32,17 +32,17 @@
 
 #include "libdemosaic.h"
 #include "libAuxiliary.h"
-#include "io_png.h"
+#include "io_tiff.h"
 #include <string.h>
 
-// Usage: duran-buades bayer.png decoded.png beta
+// Usage: duran-buades bayer.tiff decoded.tiff beta
 
 int main(int argc, char **argv) {
   if (argc < 4) {
-    printf("usage: duran-buades bayer.png decoded.png beta\n\n");
-    printf("bayer.png   :: input Bayer-encoded image (gray scale).\n");
-    printf("decoded.png :: demosaicked image.\n");
-    printf("beta        :: fixed channel-correlation parameter.\n");
+    printf("usage: duran-buades bayer.tiff decoded.tiff beta\n\n");
+    printf("bayer.tiff   :: input Bayer-encoded image (gray scale).\n");
+    printf("decoded.tiff :: demosaicked image.\n");
+    printf("beta         :: fixed channel-correlation parameter.\n");
     printf("\n");
     printf("The following parameters are fixed in main():\n");
     printf("epsilon   :: thresholding parameter avoiding numerical\n"
@@ -61,19 +61,18 @@ int main(int argc, char **argv) {
   }
 
   // Read Bayer-encoded image
-  size_t nx, ny, nc;
+  size_t nx, ny;
   float *mosaicked = NULL;
+  char *description;
 
-  mosaicked = io_png_read_f32(argv[1], &nx, &ny, &nc);
-
-  printf("%d\n", (int)nc);
-  if (!mosaicked) {
-    fprintf(stderr, "Error - %s not found  or not a correct png image.\n", argv[1]);
+  /* TIFF 16-bit grayscale -> float input */
+  if (NULL == (mosaicked = read_tiff_gray16_f32(argv[1], &nx, &ny, &description))) {
+    fprintf(stderr, "error while reading from %s\n", argv[1]);
     return EXIT_FAILURE;
   }
 
-  if (nc != 1) { // Use only RGB image
-    fprintf(stderr, "Error - %s expecting a gray-scale PNG image.\n", argv[1]);
+  if (!mosaicked) {
+    fprintf(stderr, "Error - %s not found or not a correct TIFF image.\n", argv[1]);
     return EXIT_FAILURE;
   }
 
@@ -120,22 +119,22 @@ int main(int argc, char **argv) {
         height) != 1)
     return EXIT_FAILURE;
 
-  // Save demosaicked image in png format
-  float *image_png = new float[dim * 3];
+  // Save demosaicked image
+  float *output_image = new float[dim * 3];
   int k = 0;
   for (int c = 0; c < num_channels; c++)
     for (int i = 0; i < dim; i++) {
-      image_png[k] = demosaicked[c][i];
+      output_image[k] = demosaicked[c][i];
       k++;
     }
 
-  if (io_png_write_f32(argv[2], image_png, (size_t) width, (size_t) height, (size_t) num_channels) != 0) {
-    fprintf(stderr, "Error - Failed to save png image %s.\n", argv[2]);
+  if (write_tiff_rgb_f32(argv[2], output_image, (size_t) width, (size_t) height)) {
+    fprintf(stderr, "Error - Failed to save TIFF image %s.\n", argv[2]);
     return EXIT_FAILURE;
   }
 
   // Delete allocated memory
-  delete[] image_png;
+  delete[] output_image;
   free(mosaicked);
 
   for (int c = 0; c < num_channels; c++) {
