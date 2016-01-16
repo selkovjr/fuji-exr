@@ -31,64 +31,6 @@
 
 #include "libdemosaic.h"
 
-/**
- * \brief Simulate mosaicked image.
- *
- * @param[in]  red, green, blue  full red, green, and blue reference channels:
- *             the pointer accounts for the pixel position
- * @param[out] ored, ogreen, oblue  mosaicked red, green and blue channels: the
- *             pointer accounts for the pixel position.
- * @param[in]  redx, redy  coordinates of the first red value in the CFA.
- * @param[in]  width, height  image size.
- * @return 1 if exit success.
- *
- */
-
-int CFAimage(float *red, float *green, float *blue, float *ored, float *ogreen,
-              float *oblue, int redx, int redy, int width, int height)
-{
-    // Initializations
-    int bluex = 1 - redx;
-    int bluey = 1 - redy;
-    int dim = width * height;
-    fpClear(ored, 0.0f, dim);
-    fpClear(ogreen, 0.0f, dim);
-    fpClear(oblue, 0.0f, dim);
-
-    // CFA mask
-    unsigned char *cfamask = new unsigned char[dim];
-
-    for(int x = 0; x < width; x++)
-    {
-        for(int y = 0; y < height; y++)
-        {
-            int l = y * width + x;
-
-            if((x % 2 == redx) && (y % 2 == redy))
-                cfamask[l] = REDPOSITION;
-            else if((x % 2 == bluex) && (y % 2 == bluey))
-                cfamask[l] = BLUEPOSITION;
-            else
-                cfamask[l] = GREENPOSITION;
-        }
-    }
-
-    // Compute mosaicked image
-    for(int i = 0; i < dim; i++)
-    {
-        if(cfamask[i] == REDPOSITION)
-            ored[i] = red[i];
-        else if(cfamask[i] == GREENPOSITION)
-            ogreen[i] = green[i];
-        else
-            oblue[i] = blue[i];
-    }
-
-    // Delete allocated memory
-    delete[] cfamask;
-
-    return 1;
-}
 
 /**
  * \brief Fill in missing green values at each pixel by local directional
@@ -108,9 +50,11 @@ int CFAimage(float *red, float *green, float *blue, float *ored, float *ogreen,
  *
  */
 
-void Gdirectional(float *red, float *green, float *blue, float beta,
-                  int direction, int redx, int redy, int width, int height)
-{
+void g_directional (
+  float *red, float *green, float *blue,
+  float beta, int direction,
+  int redx, int redy, int width, int height
+) {
     // Initializations
     int dim = width * height;
     int bluex = 1 - redx;
@@ -220,9 +164,11 @@ void Gdirectional(float *red, float *green, float *blue, float beta,
  *
  */
 
-void RBbilinear(float *red, float *green, float *blue, float beta, int redx,
-               int redy, int width, int height)
-{
+void rb_bilinear (
+  float *red, float *green, float *blue,
+  float beta,
+  int redx, int redy, int width, int height
+) {
     // Initializations
     int dim = width * height;
     int bluex = 1 - redx;
@@ -350,9 +296,11 @@ void RBbilinear(float *red, float *green, float *blue, float beta, int redx,
  *
  */
 
-void variation4d(float *u, float *v, int direction, int halfL, int width,
-                 int height)
-{
+void variation4d (
+  float *u, float *v,
+  int direction, int halfL,
+  int width, int height
+) {
     // Support size when computing variance
     int support = 2 * halfL + 1;
 
@@ -479,10 +427,12 @@ void variation4d(float *u, float *v, int direction, int halfL, int width,
  *
  */
 
-void local_algorithm(float *red, float *green, float *blue, float *ored,
-                     float *ogreen, float *oblue, float beta, float epsilon,
-                     int halfL, int redx, int redy, int width, int height)
-{
+void local_algorithm (
+  float *red, float *green, float *blue,
+  float *ored, float *ogreen, float *oblue,
+  float beta, float epsilon, int halfL,
+  int redx, int redy, int width, int height
+) {
     // Initializations
     int dim = width * height;
 
@@ -500,8 +450,8 @@ void local_algorithm(float *red, float *green, float *blue, float *ored,
     fpCopy(green, agn, dim);
     fpCopy(blue, abn, dim);
 
-    Gdirectional(arn, agn, abn, beta, NORTH, redx, redy, width, height);
-    RBbilinear(arn, agn, abn, beta, redx, redy, width, height);
+    g_directional(arn, agn, abn, beta, NORTH, redx, redy, width, height);
+    rb_bilinear(arn, agn, abn, beta, redx, redy, width, height);
 
     // Convert interpolated image into YUV space
     fiRgb2Yuv(arn, agn, abn, y, u, v, dim);
@@ -525,8 +475,8 @@ void local_algorithm(float *red, float *green, float *blue, float *ored,
     fpCopy(green, ags, dim);
     fpCopy(blue, abs, dim);
 
-    Gdirectional(ars, ags, abs, beta, SOUTH, redx, redy, width, height);
-    RBbilinear(ars, ags, abs, beta, redx, redy, width, height);
+    g_directional(ars, ags, abs, beta, SOUTH, redx, redy, width, height);
+    rb_bilinear(ars, ags, abs, beta, redx, redy, width, height);
 
     // Convert interpolated image into YUV space
     fiRgb2Yuv(ars, ags, abs, y, u, v, dim);
@@ -550,8 +500,8 @@ void local_algorithm(float *red, float *green, float *blue, float *ored,
     fpCopy(green, age, dim);
     fpCopy(blue, abe, dim);
 
-    Gdirectional(are, age, abe, beta, EAST, redx, redy, width, height);
-    RBbilinear(are, age, abe, beta, redx, redy, width, height);
+    g_directional(are, age, abe, beta, EAST, redx, redy, width, height);
+    rb_bilinear(are, age, abe, beta, redx, redy, width, height);
 
     // Convert interpolated image into YUV space
     fiRgb2Yuv(are, age, abe, y, u, v, dim);
@@ -575,8 +525,8 @@ void local_algorithm(float *red, float *green, float *blue, float *ored,
     fpCopy(green, agw, dim);
     fpCopy(blue, abw, dim);
 
-    Gdirectional(arw, agw, abw, beta, WEST, redx, redy, width, height);
-    RBbilinear(arw, agw, abw, beta, redx, redy, width, height);
+    g_directional(arw, agw, abw, beta, WEST, redx, redy, width, height);
+    rb_bilinear(arw, agw, abw, beta, redx, redy, width, height);
 
     // Convert interpolated image into YUV space
     fiRgb2Yuv(arw, agw, abw, y, u, v, dim);
@@ -658,10 +608,11 @@ void local_algorithm(float *red, float *green, float *blue, float *ored,
  *
  */
 
-void adaptive_parameters(float *red, float *green, float *blue, float &beta,
-                        float &h, float epsilon, float M, int halfL, int redx,
-                        int redy, int width, int height)
-{
+void adaptive_parameters (
+  float *red, float *green, float *blue,
+  float &beta, float &h, float epsilon, float M, int halfL,
+  int redx, int redy, int width, int height
+) {
     // Image size
     int dim = width * height;
 
@@ -762,10 +713,12 @@ void adaptive_parameters(float *red, float *green, float *blue, float &beta,
  *
  */
 
-void Gfiltering(float *red, float *green, float *blue, float *ogreen, float beta,
-               float h, int reswind, int compwind, int N, int redx, int redy,
-               int width, int height)
-{
+void g_filtering (
+  float *red, float *green, float *blue,
+  float *ogreen,
+  float beta, float h, int reswind, int compwind, int N,
+  int redx, int redy, int width, int height
+) {
     // Initializations
     int bluex = 1 - redx;
     int bluey = 1 - redy;
@@ -952,10 +905,12 @@ void Gfiltering(float *red, float *green, float *blue, float *ogreen, float beta
  *
  */
 
-void RBfiltering(float *red, float *green, float *blue, float *ored,
-                 float *ogreen, float *oblue, float beta, float h, int reswind,
-                 int compwind, int N, int redx, int redy, int width, int height)
-{
+void rb_filtering (
+  float *red, float *green, float *blue,
+  float *ored, float *ogreen, float *oblue,
+  float beta, float h, int reswind, int compwind, int N,
+  int redx, int redy, int width, int height
+) {
     // Initializations
     int bluex = 1 - redx;
     int bluey = 1 - redy;
@@ -1152,12 +1107,12 @@ void RBfiltering(float *red, float *green, float *blue, float *ored,
  *
  */
 
-int algorithm_chain(float *red, float *green, float *blue, float *ored,
-                    float *ogreen, float *oblue, float beta, float h,
-                    float epsilon, float M, int halfL, int reswind,
-                    int compwind, int N, int redx, int redy, int width,
-                    int height)
-{
+int algorithm_chain (
+  float *red, float *green, float *blue,
+  float *ored, float *ogreen, float *oblue,
+  float beta, float h, float epsilon, float M, int halfL, int reswind, int compwind, int N,
+  int redx, int redy, int width, int height
+) {
     // Image size
     int dim = width * height;
 
@@ -1185,9 +1140,9 @@ int algorithm_chain(float *red, float *green, float *blue, float *ored,
 
     // Second step
     // Nonlocal filtering of channel differences
-    Gfiltering(ired, igreen, iblue, ogreen, beta, h, reswind, compwind, N, redx,
+    g_filtering(ired, igreen, iblue, ogreen, beta, h, reswind, compwind, N, redx,
                redy, width, height);
-    RBfiltering(ired, igreen, iblue, ored, ogreen, oblue, beta, h, reswind,
+    rb_filtering(ired, igreen, iblue, ored, ogreen, oblue, beta, h, reswind,
                 compwind, N, redx, redy, width, height);
 
     // Delete allocated memory

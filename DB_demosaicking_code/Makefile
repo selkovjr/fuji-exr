@@ -1,15 +1,15 @@
 COBJ = io_png.o
-CXXOBJ = libAuxiliary.o libdemosaic.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
+CXXOBJ = libAuxiliary.o libdemosaic.o duran-buades.o imdiff_ipol.o
 
-BIN = demosaicking_ipol imdiff_ipol duran-buades
+BIN = imdiff_ipol duran-buades
 
 hdrdir= -I/usr/local/include/ -I/usr/include/
 libdir= -L/usr/local/lib/ -L/usr/lib/
 
-COPT = -g -O3 -funroll-loops -fomit-frame-pointer  -Wall -Wextra
+COPT = -g -O3 -fopenmp -funroll-loops -fomit-frame-pointer  -Wall -Wextra
 CFLAGS  += $(COPT) $(hdrdir)
 
-LDFLAGS +=  $(libdir) -lpng
+LDFLAGS +=  $(libdir) -lgomp -lpng
 
 # use openMP with `make OMP=1`
 ifdef OMP

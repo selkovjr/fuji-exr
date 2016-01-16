@@ -51,22 +51,6 @@
 #define EAST 3
 
 /**
- * \brief Simulate mosaicked image.
- *
- * @param[in]  red, green, blue  full red, green, and blue reference channels:
- *             the pointer accounts for the pixel position
- * @param[out] ored, ogreen, oblue  mosaicked red, green and blue channels: the
- *             pointer accounts for the pixel position.
- * @param[in]  redx, redy  coordinates of the first red value in the CFA.
- * @param[in]  width, height  image size.
- * @return 1 if exit success.
- *
- */
-
-int CFAimage(float *red, float *green, float *blue, float *ored, float *ogreen,
-              float *oblue, int redx, int redy, int width, int height);
-
-/**
  * \brief Fill in missing green values at each pixel by local directional
  *        interpolation.
  *
