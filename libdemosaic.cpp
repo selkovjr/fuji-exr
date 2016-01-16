@@ -1102,7 +1102,7 @@ void chromatic_median(
  */
 
 
-void ssd_demosaic_chain(
+void ssd_demosaic_chain (
   float *ired,
   float *igreen,
   float *iblue,

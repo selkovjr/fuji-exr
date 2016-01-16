@@ -21,8 +21,14 @@
  * @author Joan Duran <joan.duran@uib.es>
  */
 
-#ifndef _LIBAUXILIAR_H_
-#define _LIBAUXILIAR_H_
+#ifndef _LIBAUXILIARY_H_
+#define _LIBAUXILIARY_H_
+
+
+#include <stdlib.h>
+#include <string.h>
+#include <fstream>
+#include <cmath>
 
 #define MAX(i,j) ( (i)<(j) ? (j):(i) )
 #define MIN(i,j) ( (i)<(j) ? (i):(j) )
@@ -31,15 +37,12 @@
 #define LUTMAXM1 29.0
 #define LUTPRECISION 1000.0
 
+#define fTiny 0.00000001f
+
+
 #define COEFF_YR 0.299
 #define COEFF_YG 0.587
 #define COEFF_YB 0.114
-
-#include <stdlib.h>
-#include <string.h>
-#include <fstream>
-#include <cmath>
-
 /**
  * \brief  Initializate a float vector.
  * 	

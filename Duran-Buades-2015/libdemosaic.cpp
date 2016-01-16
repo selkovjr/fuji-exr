@@ -522,7 +522,7 @@ void local_algorithm (
 
     wSum = northuTv[i] + southuTv[i] + westuTv[i] + eastuTv[i];
 
-    if (wSum > 0.0000000001f) {
+    if (wSum > fTiny) {
       wNorth = 1.0f / (northuTv[i] + epsilon);
       wSouth = 1.0f / (southuTv[i] + epsilon);
       wWest = 1.0f / (westuTv[i] + epsilon);
@@ -818,7 +818,7 @@ void g_filtering (
           }
 
           // Set value to central pixel
-          if (gweight > 0.0000000001f) {
+          if (gweight > fTiny) {
             ogreen[l] = gvalue / gweight;
 
             if (cfamask[l] == BLUEPOSITION )
@@ -988,27 +988,25 @@ void rb_filtering (
           weight = wxSLUT(dist_list[k], lut);
 
           if (rcweight < fN) {
-            rvalue += weight * (red[cindex]
-                - beta * ogreen[cindex]);
+            rvalue += weight * (red[cindex] - beta * ogreen[cindex]);
             rcweight++;
             rweight += weight;
           }
 
           if (bcweight < fN) {
-            bvalue += weight * (blue[cindex]
-                - beta * ogreen[cindex]);
+            bvalue += weight * (blue[cindex] - beta * ogreen[cindex]);
             bcweight++;
             bweight += weight;
           }
         }
 
         // Set value to central pixel if missing red or blue value
-        if ((cfamask[l] != REDPOSITION) && (rweight > 0.0000000001f))
+        if ((cfamask[l] != REDPOSITION) && (rweight > fTiny))
           ored[l] = rvalue / rweight + beta * ogreen[l];
         else
           ored[l] = red[l];
 
-        if ((cfamask[l] != BLUEPOSITION) && (bweight > 0.0000000001f))
+        if ((cfamask[l] != BLUEPOSITION) && (bweight > fTiny))
           oblue[l] = bvalue / bweight + beta * ogreen[l];
         else
           oblue[l] = blue[l];
@@ -1072,8 +1070,6 @@ int algorithm_chain (
   }
 
   printf("beta: %2.5f\n", beta);
-  printf("dim: %d\n", dim);
-  printf("halfL: %d\n", halfL);
 
   // Fist step
   // Local directional interpolation with adaptive inter-channel correlation
@@ -1083,16 +1079,16 @@ int algorithm_chain (
   float *iblue = new float[dim];
   printf(" done\n");
 
-  printf("1. local_algorithm(red, green, blue, iread, igreen, iblue, β: %5.2f, ε: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, epsilon, halfL, redx, redy, width, height);
-  fflush(stdout);
+  printf("1. local_algorithm((red, green, blue) -> (ired, igreen, iblue), β: %5.2f, ε: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, epsilon, halfL, redx, redy, width, height);
   local_algorithm(red, green, blue, ired, igreen, iblue, beta, epsilon, halfL, redx, redy, width, height);
 
   // Second step
   // Nonlocal filtering of channel differences
-  g_filtering(ired, igreen, iblue, ogreen, beta, h, reswind, compwind, N, redx,
-      redy, width, height);
-  rb_filtering(ired, igreen, iblue, ored, ogreen, oblue, beta, h, reswind,
-      compwind, N, redx, redy, width, height);
+  printf("2. g_filtering((ired, igreen, iblue) -> (ogreen), β: %5.2f, h: %5.2f, reswind: %d, compwind: %d, N: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, h, reswind, compwind, N, redx, redy, width, height);
+  g_filtering(ired, igreen, iblue, ogreen, beta, h, reswind, compwind, N, redx, redy, width, height);
+
+  printf("3. rb_filtering((ired, igreen, iblue, ogreen) -> (ored, oblue), β: %5.2f, h: %5.2f, reswind: %d, compwind: %d, N: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, h, reswind, compwind, N, redx, redy, width, height);
+  rb_filtering(ired, igreen, iblue, ored, ogreen, oblue, beta, h, reswind, compwind, N, redx, redy, width, height);
 
   // Delete allocated memory
   delete[] ired; delete[] igreen; delete[] iblue;

@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
   }
 
   // Fixed parameters
-  float epsilon = 0.00000001f;
+  float epsilon = fTiny;
   float M = 13.0f;
   int halfL = 1;
   int reswind = 10;

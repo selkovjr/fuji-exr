@@ -1,50 +1,45 @@
 /*
-* Copyright (c) 2015, Gene Selkov <selkovjr@gmail.com>
-*/
+ * Copyright (c) 2016, Gene Selkov <selkovjr@gmail.com>
+ * Copyright 2009-2015 IPOL Image Processing On Line http://www.ipol.im/
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-/*
-* Portions copyright (c) 2009-2011, A. Buades <toni.buades@uib.es>
-* All rights reserved.
-*/
-
-/*
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>
-*/
-
+/**
+ * @file libauxiliar.cpp
+ * @brief Auxiliar functions.
+ * @author Joan Duran <joan.duran@uib.es>
+ */
 
 #ifndef _LIBAUXILIARY_H_
 #define _LIBAUXILIARY_H_
 
 
-
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fstream>
 #include <cmath>
 #include <time.h>
 #include <unistd.h>
 
 
+#define MAX(i,j) ( (i)<(j) ? (j):(i) )
+#define MIN(i,j) ( (i)<(j) ? (i):(j) )
 
 #define LUTMAX 30.0
 #define LUTMAXM1 29.0
 #define LUTPRECISION 1000.0
-
-
-#define MAX(i,j) ( (i)<(j) ? (j):(i) )
-#define MIN(i,j) ( (i)<(j) ? (i):(j) )
-
 
 #define fTiny 0.00000001f
 
