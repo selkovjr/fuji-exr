@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2016, Gene Selkov <selkovjr@gmail.com>
  * Copyright 2009-2015 IPOL Image Processing On Line http://www.ipol.im/
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,8 +17,8 @@
  */
 
 /**
- * @file libauxiliar.cpp
- * @brief Auxiliar functions.
+ * @file   libAuxiliary.cpp
+ * @brief  Standard functions used by demosaicking algorithms
  * @author Joan Duran <joan.duran@uib.es>
  */
 
@@ -43,9 +44,10 @@
 #define COEFF_YR 0.299
 #define COEFF_YG 0.587
 #define COEFF_YB 0.114
+
 /**
  * \brief  Initializate a float vector.
- * 	
+ *
  * @param[in]  u  vector input.
  * @param[out] u  vector output.
  * @param[in]  value  value inserted.
@@ -123,5 +125,7 @@ void fiRgb2Yuv(float *R, float *G, float *B, float *Y, float *U, float *V,
  */
 
 void fpQuickSort(float *fpI, float *fpS, int dim);
+
+void write_image (char *fn, float *red, float *green, float *blue, int width, int height);
 
 #endif

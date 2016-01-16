@@ -23,6 +23,9 @@
 
 #include "libAuxiliary.h"
 
+#include "io_tiff.h"
+#include "tiffio.h"
+
 /**
  * \brief  Initializate a float vector.
  *
@@ -35,8 +38,8 @@
 
 void fpClear(float *u, float value, int dim)
 {
-    for(int i = 0; i < dim; i++)
-	    u[i] = value;
+  for(int i = 0; i < dim; i++)
+    u[i] = value;
 }
 
 /**
@@ -50,8 +53,8 @@ void fpClear(float *u, float value, int dim)
 
 void fpCopy(float *input, float *output, int dim)
 {
-    if (input != output)
-        memcpy((void *) output, (const void *) input, dim * sizeof(float));
+  if (input != output)
+    memcpy((void *) output, (const void *) input, dim * sizeof(float));
 }
 
 /**
@@ -64,29 +67,29 @@ void fpCopy(float *input, float *output, int dim)
 
 void wxFillExpLut(float *lut, int size)
 {
-    for(int i = 0; i < size; i++)
-        lut[i] = expf(- (float) i / LUTPRECISION);
+  for (int i = 0; i < size; i++)
+    lut[i] = expf(- (float) i / LUTPRECISION);
 }
 
 /**
   * \brief  Compute exp(-x) using lut table.
   *
-  * @param[in] argument	 argument of the exponential.
-  * @param[in] lut	lookup table.
+  * @param[in] argument  argument of the exponential.
+  * @param[in] lut  lookup table.
   * @return exponential value.
   */
 
 float wxSLUT(float argument, float *lut)
 {
-    if(argument >= (float) LUTMAXM1)
-        return 0.0f;
+  if (argument >= (float) LUTMAXM1)
+    return 0.0f;
 
-    int  x = (int) floor((double) argument * (float) LUTPRECISION);
+  int  x = (int) floor((double) argument * (float) LUTPRECISION);
 
-    float y1 = lut[x];
-    float y2 = lut[x+1];
+  float y1 = lut[x];
+  float y2 = lut[x+1];
 
-    return y1 + (y2 - y1) * (argument * LUTPRECISION - x);
+  return y1 + (y2 - y1) * (argument * LUTPRECISION - x);
 }
 
 /**
@@ -103,24 +106,22 @@ float wxSLUT(float argument, float *lut)
 float fiL2FloatDist(float *u0, float *u1, int i0, int j0, int i1, int j1,
                     int xradius, int yradius, int width0, int width1)
 {
-    float dist = 0.0f;
+  float dist = 0.0f;
 
-    for(int s = -yradius; s <= yradius; s++)
-    {
-        int l = (j0 + s) * width0 + (i0 - xradius);
-        float *ptr0 = &u0[l];
+  for(int s = -yradius; s <= yradius; s++) {
+    int l = (j0 + s) * width0 + (i0 - xradius);
+    float *ptr0 = &u0[l];
 
-        l = (j1 + s) * width1 + (i1 - xradius);
-        float *ptr1 = &u1[l];
+    l = (j1 + s) * width1 + (i1 - xradius);
+    float *ptr1 = &u1[l];
 
-        for(int r = -xradius; r <= xradius; r++, ptr0++, ptr1++)
-        {
-            float dif = (*ptr0 - *ptr1);
-            dist += (dif * dif);
-        }
+    for(int r = -xradius; r <= xradius; r++, ptr0++, ptr1++) {
+      float dif = (*ptr0 - *ptr1);
+      dist += (dif * dif);
     }
+  }
 
-    return dist;
+  return dist;
 }
 
 /**
@@ -135,32 +136,31 @@ float fiL2FloatDist(float *u0, float *u1, int i0, int j0, int i1, int j1,
 void fiRgb2Yuv(float *R, float *G, float *B, float *Y, float *U, float *V,
                int dim)
 {
-    for(int i = 0; i < dim; i++)
-    {
-        Y[i] = COEFF_YR * R[i] + COEFF_YG * G[i] + COEFF_YB * B[i];
-        U[i] = R[i] - Y[i];
-        V[i] = B[i] - Y[i];
-    }
+  for(int i = 0; i < dim; i++) {
+    Y[i] = COEFF_YR * R[i] + COEFF_YG * G[i] + COEFF_YB * B[i];
+    U[i] = R[i] - Y[i];
+    V[i] = B[i] - Y[i];
+  }
 }
 
 struct stf_qsort
 {
-    float value;
-    float index;
+  float value;
+  float index;
 };
 
 
 int order_stf_qsort_increasing(const void *pVoid1, const void *pVoid2)
 {
-    struct stf_qsort *p1, *p2;
+  struct stf_qsort *p1, *p2;
 
-    p1 = (struct stf_qsort *) pVoid1;
-    p2 = (struct stf_qsort *) pVoid2;
+  p1 = (struct stf_qsort *) pVoid1;
+  p2 = (struct stf_qsort *) pVoid2;
 
-    if(p1->value < p2->value) return -1;
-    if(p1->value > p2->value) return  1;
+  if(p1->value < p2->value) return -1;
+  if(p1->value > p2->value) return  1;
 
-    return 0;
+  return 0;
 }
 
 /**
@@ -175,22 +175,49 @@ int order_stf_qsort_increasing(const void *pVoid1, const void *pVoid2)
 
 void fpQuickSort(float *fpI, float *fpS, int dim)
 {
-    struct stf_qsort *vector = new stf_qsort[dim];
+  struct stf_qsort *vector = new stf_qsort[dim];
 
-    for(int i = 0; i < dim; i++)
-    {
-        vector[i].value = fpI[i];
-        vector[i].index = fpS[i];
+  for(int i = 0; i < dim; i++) {
+    vector[i].value = fpI[i];
+    vector[i].index = fpS[i];
+  }
+
+  qsort(vector, dim, sizeof(stf_qsort), order_stf_qsort_increasing);
+
+  for(int i = 0; i < dim; i++) {
+    fpI[i] = vector[i].value;
+    fpS[i] = vector[i].index;
+  }
+
+  delete[] vector;
+}
+
+void write_image (
+  char *fn,
+  float *red,
+  float *green,
+  float *blue,
+  int width,
+  int height
+) {
+  float *data_out;
+
+  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * height * 3))) {
+    fprintf(stderr, "write_image(): allocation error. not enough memory?\n");
+    exit(EXIT_FAILURE);
+  }
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int p = y * width + x;
+      data_out[p] = red[p];
+      data_out[p + width * height] = green[p];
+      data_out[p + 2 * width * height] = blue[p];
     }
+  }
 
-    qsort(vector, dim, sizeof(stf_qsort), order_stf_qsort_increasing);
+  write_tiff_rgb_f32(fn, data_out, width, height);
 
-    for(int i = 0; i < dim; i++)
-    {
-        fpI[i] = vector[i].value;
-        fpS[i] = vector[i].index;
-    }
-
-    delete[] vector;
+  free (data_out);
 }
 

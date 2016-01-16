@@ -425,7 +425,10 @@ void local_algorithm (
   fpCopy(green, agn, dim);
   fpCopy(blue, abn, dim);
 
+  printf("  g_directional((arn <- red, agn <- green, abn <- blue) -> (agn), β: %5.2f, NORTH, redx: %d, redy: %d, width: %d, height: %d)\n", beta, redx, redy, width, height);
   g_directional(arn, agn, abn, beta, NORTH, redx, redy, width, height);
+  write_image("g-directional-north.tiff", agn, agn, agn,  width, height);
+
   rb_bilinear(arn, agn, abn, beta, redx, redy, width, height);
 
   // Convert interpolated image into YUV space
@@ -1080,7 +1083,13 @@ int algorithm_chain (
   printf(" done\n");
 
   printf("1. local_algorithm((red, green, blue) -> (ired, igreen, iblue), β: %5.2f, ε: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, epsilon, halfL, redx, redy, width, height);
-  local_algorithm(red, green, blue, ired, igreen, iblue, beta, epsilon, halfL, redx, redy, width, height);
+  local_algorithm(            red, green, blue,     ired, igreen, iblue,  beta, epsilon, halfL, redx, redy, width, height);
+  write_image("demosaicked.tiff",                   ired, igreen, iblue,  width, height);
+  //                                  ________________/      /      /
+  //                                /      _________________/      /
+  //                               /      /      _________________/
+  //                              /      /      /
+
 
   // Second step
   // Nonlocal filtering of channel differences

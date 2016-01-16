@@ -17,8 +17,8 @@
  */
 
 /**
- * @file libauxiliar.cpp
- * @brief Auxiliar functions.
+ * @file   libAuxiliary.cpp
+ * @brief  Standard functions used by demosaicking algorithms
  * @author Joan Duran <joan.duran@uib.es>
  */
 
@@ -47,20 +47,6 @@
 #define COEFF_YR 0.299
 #define COEFF_YG 0.587
 #define COEFF_YB 0.114
-
-
-
-/**
- * @file   libAuxiliary.cpp
- * @brief  Standard functions used by demosaicking algorithms
- *
- *
- *
- * @author Antoni Buades <toni.buades@uib.es>
- */
-
-
-
 
 /**
  * \brief  RGV to YUV standard conversion
