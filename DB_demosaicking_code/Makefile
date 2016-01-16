@@ -1,5 +1,5 @@
 COBJ = io_png.o
-CXXOBJ = libAuxiliary.o libdemosaicking.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
+CXXOBJ = libAuxiliary.o libdemosaic.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
 
 BIN = demosaicking_ipol imdiff_ipol duran-buades
 
@@ -25,7 +25,7 @@ $(COBJ) : %.o : %.c
 $(CXXOBJ) : %.o : %.cpp
 	$(CXX) -std=c++98 -c $(CFLAGS)   $< -o $@
 
-$(BIN) : % : %.o  io_png.o libAuxiliary.o libdemosaicking.o
+$(BIN) : % : %.o  io_png.o libAuxiliary.o libdemosaic.o
 	$(CXX)  -std=c++98  -o $@  $^ $(LDFLAGS)
 
 .PHONY : clean

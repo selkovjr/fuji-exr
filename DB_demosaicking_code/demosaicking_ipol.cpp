@@ -30,7 +30,7 @@
  * @author Joan Duran <joan.duran@uib.es>
  */
 
-#include "libdemosaicking.h"
+#include "libdemosaic.h"
 #include "libAuxiliary.h"
 #include "io_png.h"
 #include <string.h>

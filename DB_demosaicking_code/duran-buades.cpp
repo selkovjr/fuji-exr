@@ -30,7 +30,7 @@
  * @author Gene Selkov <selkovjr@gmail.com>
  */
 
-#include "libdemosaicking.h"
+#include "libdemosaic.h"
 #include "libAuxiliary.h"
 #include "io_png.h"
 #include <string.h>

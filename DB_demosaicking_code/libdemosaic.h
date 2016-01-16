@@ -17,7 +17,7 @@
  */
 
 /**
- * @file libdemosaicking.cpp
+ * @file libdemosaic.cpp
  * @brief Functions which implements the demosaicking algorithm proposed in
  * [J. Duran, A. Buades, "Self-Similarity and Spectral Correlation Adaptive
  * Algorithm for Color Demosaicking", IEEE Trans. Image Process., vol. 23(9),
