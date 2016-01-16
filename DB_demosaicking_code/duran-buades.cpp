@@ -24,14 +24,14 @@
  */
 
 /**
- * @file   demosaicking_ipol.cpp
- * @brief  Main executable file
+ * @file   duran-buades.cpp
+ * @brief  Main executable file for the Duran-Buades (2015) decoder
  *
- * @author Joan Duran <joan.duran@uib.es>
+ * @author Gene Selkov <selkovjr@gmail.com>
  */
 
 #include "libdemosaicking.h"
-#include "libauxiliar.h"
+#include "libAuxiliary.h"
 #include "io_png.h"
 #include <string.h>
 

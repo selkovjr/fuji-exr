@@ -31,7 +31,7 @@
  */
 
 #include "libdemosaicking.h"
-#include "libauxiliar.h"
+#include "libAuxiliary.h"
 #include "io_png.h"
 #include <string.h>
 

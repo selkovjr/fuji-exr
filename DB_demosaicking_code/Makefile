@@ -1,5 +1,5 @@
 COBJ = io_png.o
-CXXOBJ = libauxiliar.o libdemosaicking.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
+CXXOBJ = libAuxiliary.o libdemosaicking.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
 
 BIN = demosaicking_ipol imdiff_ipol duran-buades
 
@@ -25,7 +25,7 @@ $(COBJ) : %.o : %.c
 $(CXXOBJ) : %.o : %.cpp
 	$(CXX) -std=c++98 -c $(CFLAGS)   $< -o $@
 
-$(BIN) : % : %.o  io_png.o libauxiliar.o libdemosaicking.o
+$(BIN) : % : %.o  io_png.o libAuxiliary.o libdemosaicking.o
 	$(CXX)  -std=c++98  -o $@  $^ $(LDFLAGS)
 
 .PHONY : clean
@@ -34,7 +34,7 @@ clean:
 
 sample: 151018_180328.RAF
 	#dcraw -v -w -d -s all -6 -b 1.7 151018_180328.RAF
-	dcraw -v -w -s all -4 151018_180328.RAF
+	dcraw -v -W -s all -4 151018_180328.RAF
 	convert 151018_180328_0.pgm -crop 252x276+1116+1416 +repage fragment-0.png
 	convert 151018_180328_1.pgm -crop 252x276+1116+1416 +repage fragment-1.png
 	convert 151018_180328.JPG -crop 276x252+1576+1106 fragment.jpeg

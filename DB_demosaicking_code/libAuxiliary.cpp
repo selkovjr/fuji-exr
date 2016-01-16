@@ -16,16 +16,16 @@
  */
 
 /**
- * @file libauxiliar.cpp
+ * @file libAuxiliary.cpp
  * @brief Auxiliar functions.
  * @author Joan Duran <joan.duran@uib.es>
  */
 
-#include "libauxiliar.h"
+#include "libAuxiliary.h"
 
 /**
  * \brief  Initializate a float vector.
- * 	
+ *
  * @param[in]  u  vector input.
  * @param[out] u  vector output.
  * @param[in]  value  value inserted.
@@ -33,9 +33,9 @@
  *
  */
 
-void fpClear(float *u, float value, int dim) 
+void fpClear(float *u, float value, int dim)
 {
-    for(int i = 0; i < dim; i++) 
+    for(int i = 0; i < dim; i++)
 	    u[i] = value;
 }
 
@@ -50,7 +50,7 @@ void fpClear(float *u, float value, int dim)
 
 void fpCopy(float *input, float *output, int dim)
 {
-    if (input != output)  
+    if (input != output)
         memcpy((void *) output, (const void *) input, dim * sizeof(float));
 }
 
@@ -103,20 +103,20 @@ float wxSLUT(float argument, float *lut)
 float fiL2FloatDist(float *u0, float *u1, int i0, int j0, int i1, int j1,
                     int xradius, int yradius, int width0, int width1)
 {
-    float dist = 0.0f;     
-  
+    float dist = 0.0f;
+
     for(int s = -yradius; s <= yradius; s++)
     {
         int l = (j0 + s) * width0 + (i0 - xradius);
         float *ptr0 = &u0[l];
 
         l = (j1 + s) * width1 + (i1 - xradius);
-        float *ptr1 = &u1[l];    
+        float *ptr1 = &u1[l];
 
         for(int r = -xradius; r <= xradius; r++, ptr0++, ptr1++)
         {
-            float dif = (*ptr0 - *ptr1); 
-            dist += (dif * dif); 
+            float dif = (*ptr0 - *ptr1);
+            dist += (dif * dif);
         }
     }
 
@@ -153,13 +153,13 @@ struct stf_qsort
 int order_stf_qsort_increasing(const void *pVoid1, const void *pVoid2)
 {
     struct stf_qsort *p1, *p2;
-    
+
     p1 = (struct stf_qsort *) pVoid1;
     p2 = (struct stf_qsort *) pVoid2;
-    
+
     if(p1->value < p2->value) return -1;
     if(p1->value > p2->value) return  1;
-    
+
     return 0;
 }
 
@@ -176,21 +176,21 @@ int order_stf_qsort_increasing(const void *pVoid1, const void *pVoid2)
 void fpQuickSort(float *fpI, float *fpS, int dim)
 {
     struct stf_qsort *vector = new stf_qsort[dim];
-    
+
     for(int i = 0; i < dim; i++)
     {
         vector[i].value = fpI[i];
         vector[i].index = fpS[i];
     }
-    
+
     qsort(vector, dim, sizeof(stf_qsort), order_stf_qsort_increasing);
-    
+
     for(int i = 0; i < dim; i++)
     {
         fpI[i] = vector[i].value;
         fpS[i] = vector[i].index;
     }
-    
+
     delete[] vector;
 }
 

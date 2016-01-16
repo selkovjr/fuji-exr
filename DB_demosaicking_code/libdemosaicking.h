@@ -1,4 +1,5 @@
 /*
+ * Copyright 2016, Gene Selkov <selkovjr@gmail.com>
  * Copyright 2009-2015 IPOL Image Processing On Line http://www.ipol.im/
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,11 +30,17 @@
  * @author Joan Duran <joan.duran@uib.es>
  */
 
-#ifndef _LIBDEMOSAICKING_H_
-#define _LIBDEMOSAICKING_H_
+#ifndef _LIBDEMOSAIC_H_
+#define _LIBDEMOSAIC_H_
 
-#include "libauxiliar.h"
-    
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+#include "libAuxiliary.h"
+
 #define GREENPOSITION 0
 #define REDPOSITION 1
 #define BLUEPOSITION 2
@@ -77,8 +84,17 @@ int CFAimage(float *red, float *green, float *blue, float *ored, float *ogreen,
  *
  */
 
-void Gdirectional(float *red, float *green, float *blue, float beta,
-                  int direction, int redx, int redy, int width, int height);
+void g_directional (
+  float *red,
+  float *green,
+  float *blue,
+  float beta,
+  int direction,
+  int redx,
+  int redy,
+  int width,
+  int height
+);
 
 /**
  * \brief Fill in missing red anb blue values at each pixel by bilinear
@@ -96,8 +112,16 @@ void Gdirectional(float *red, float *green, float *blue, float beta,
  *
  */
 
-void RBbilinear(float *red, float *green, float *blue, float beta, int redx,
-                int redy, int width, int height);
+void rb_bilinear (
+  float *red,
+  float *green,
+  float *blue,
+  float beta,
+  int redx,
+  int redy,
+  int width,
+  int height
+);
 
 /**
  * \brief Compute the variation of the chromatic components U and V along
@@ -113,8 +137,14 @@ void RBbilinear(float *red, float *green, float *blue, float beta, int redx,
  *
  */
 
-void variation4d(float *u, float *v, int direction, int halfL, int width,
-                 int height);
+void variation4d (
+  float *u,
+  float *v,
+  int direction,
+  int halfL,
+  int width,
+  int height
+);
 
 /**
  * \brief Demosaicking algorithm that fills in the missing color components by
@@ -136,9 +166,12 @@ void variation4d(float *u, float *v, int direction, int halfL, int width,
  *
  */
 
-void local_algorithm(float *red, float *green, float *blue, float *ored,
-                     float *ogreen, float *oblue, float beta, float epsilon,
-                     int halfL, int redx, int redy, int width, int height);
+void local_algorithm (
+  float *red, float *green, float *blue,
+  float *ored, float *ogreen, float *oblue,
+  float beta, float epsilon, int halfL,
+  int redx, int redy, int width, int height
+);
 
 /**
  * \brief Algorithm that automatically estimate the values of @f$\beta$@f, which
@@ -161,9 +194,11 @@ void local_algorithm(float *red, float *green, float *blue, float *ored,
  *
  */
 
-void adaptive_parameters(float *red, float *green, float *blue, float &beta,
-                         float &h, float epsilon, float M, int halfL, int redx,
-                         int redy, int width, int height);
+void adaptive_parameters (
+  float *red, float *green, float *blue,
+  float &beta, float &h, float epsilon, float M, int halfL,
+  int redx, int redy, int width, int height
+);
 
 /**
  * \brief Refine the local interpolated green channel by nonlocal filtering at
@@ -183,9 +218,12 @@ void adaptive_parameters(float *red, float *green, float *blue, float &beta,
  *
  */
 
-void Gfiltering(float *red, float *green, float *blue, float *ogreen, float beta,
-                float h, int reswind, int compwind, int N, int redx, int redy,
-                int width, int height);
+void g_filtering (
+  float *red, float *green, float *blue,
+  float *ogreen,
+  float beta, float h, int reswind, int compwind, int N,
+  int redx, int redy, int width, int height
+);
 
 /**
  * \brief Refine the local interpolated red and blue channels by nonlocal
@@ -208,10 +246,12 @@ void Gfiltering(float *red, float *green, float *blue, float *ogreen, float beta
  *
  */
 
-void RBfiltering(float *red, float *green, float *blue, float *ored,
-                 float *ogreen, float *oblue, float beta, float h, int reswind,
-                 int compwind, int N, int redx, int redy, int width,
-                 int height);
+void rb_filtering (
+  float *red, float *green, float *blue,
+  float *ored, float *ogreen, float *oblue,
+  float beta, float h, int reswind, int compwind, int N,
+  int redx, int redy, int width, int height
+);
 
 /**
  * \brief Algorithm chain for color demosaicking. It takes advantage of image
@@ -244,10 +284,11 @@ void RBfiltering(float *red, float *green, float *blue, float *ored,
  *
  */
 
-int algorithm_chain(float *red, float *green, float *blue, float *ored,
-                    float *ogreen, float *oblue, float beta, float h,
-                    float epsilon, float M, int halfL, int reswind,
-                    int compwind, int N, int redx, int redy, int width,
-                    int height);
+int algorithm_chain (
+  float *red, float *green, float *blue,
+  float *ored, float *ogreen, float *oblue,
+  float beta, float h, float epsilon, float M, int halfL, int reswind, int compwind, int N,
+  int redx, int redy, int width, int height
+);
 
 #endif
