@@ -1,7 +1,7 @@
 COBJ = io_png.o
-CXXOBJ = libAuxiliary.o libdemosaic.o duran-buades.o imdiff_ipol.o
+CXXOBJ = libAuxiliary.o libdemosaic.o duran-buades.o
 
-BIN = imdiff_ipol duran-buades
+BIN = duran-buades
 
 hdrdir= -I/usr/local/include/ -I/usr/include/
 libdir= -L/usr/local/lib/ -L/usr/lib/
@@ -34,9 +34,9 @@ clean:
 
 sample: 151018_180328.RAF
 	#dcraw -v -w -d -s all -6 -b 1.7 151018_180328.RAF
-	dcraw -v -W -s all -4 151018_180328.RAF
-	convert 151018_180328_0.pgm -crop 252x276+1116+1416 +repage fragment-0.png
-	convert 151018_180328_1.pgm -crop 252x276+1116+1416 +repage fragment-1.png
+	dcraw -v -W -D -s all -4 -T 151018_180328.RAF
+	convert 151018_180328_0.tiff -crop 252x276+1116+1416 +repage fragment-0.png
+	convert 151018_180328_1.tiff -crop 252x276+1116+1416 +repage fragment-1.png
 	convert 151018_180328.JPG -crop 276x252+1576+1106 fragment.jpeg
 
 test:
