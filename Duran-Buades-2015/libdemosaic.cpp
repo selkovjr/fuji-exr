@@ -93,20 +93,24 @@ void g_directional (
         ) {
         int gn, gs, ge, gw;
 
-        if (y > 0) gn = y-1;
+        if (y > 0) gn = y - 1;
         else gn = 1;
 
-        if (y < height-1) gs = y+1;
+        if (y < height - 1) gs = y + 1;
         else gs = height-2 ;
 
-        if (x < width-1) ge = x+1;
+        if (x < width - 1) ge = x + 1;
         else ge = width-2;
 
-        if (x > 0) gw = x-1;
+        if (x > 0) gw = x - 1;
         else gw = 1;
 
-        green[l] = 0.25f * (green[gn*width+x] + green[gs*width+x]
-            + green[y*width+gw] + green[y*width+ge]);
+        green[l] = 0.25f * (
+          green[gn * width + x] +
+          green[gs * width + x] +
+          green[y * width + gw] +
+          green[y * width + ge]
+        );
       }
     }
   }
@@ -114,8 +118,8 @@ void g_directional (
   // Directional interpolation of Green inside image
   float *color;
 
-  for (int x = 3; x < width-3; x++) {
-    for (int y = 3; y < height-3; y++) {
+  for (int x = 3; x < width - 3; x++) {
+    for (int y = 3; y < height - 3; y++) {
       int l = y * width + x;
 
       if (cfamask[l] != GREENPOSITION) {
@@ -125,17 +129,13 @@ void g_directional (
           color = blue;
 
         if (direction == NORTH)
-          green[l] = green[l-width] + 0.5f * beta * (color[l]
-              - color[l-2*width]);
+          green[l] = green[l - width] + 0.5f * beta * (color[l] - color[l - 2 * width]);
         else if (direction == SOUTH)
-          green[l] = green[l+width] + 0.5f * beta * (color[l]
-              - color[l+2*width]);
+          green[l] = green[l + width] + 0.5f * beta * (color[l] - color[l + 2 * width]);
         else if (direction == WEST)
-          green[l] = green[l-1] + 0.5f * beta * (color[l]
-              - color[l-2]);
+          green[l] = green[l - 1] + 0.5f * beta * (color[l] - color[l - 2]);
         else
-          green[l] = green[l+1] + 0.5f * beta * (color[l]
-              - color[l+2]);
+          green[l] = green[l + 1] + 0.5f * beta * (color[l] - color[l + 2]);
       }
     }
   }
@@ -202,26 +202,30 @@ void rb_bilinear (
       if (cfamask[l] != BLUEPOSITION) {
         int gn, gs, ge, gw;
 
-        if (y > 0) gn = y-1;
+        if (y > 0) gn = y - 1;
         else gn = 1;
 
-        if (y < height-1) gs = y+1;
-        else gs = height-2;
+        if (y < height - 1) gs = y + 1;
+        else gs = height - 2;
 
-        if (x < width-1) ge = x+1;
-        else ge = width-2;
+        if (x < width - 1) ge = x + 1;
+        else ge = width - 2;
 
-        if (x > 0) gw = x-1;
+        if (x > 0) gw = x - 1;
         else gw = 1;
 
 
         if ((cfamask[l] == GREENPOSITION) && (y % 2 == bluey))
-          blue[l] = 0.5f * (blue[y*width+ge] + blue[y*width+gw]);
+          blue[l] = 0.5f * (blue[y * width + ge] + blue[y * width + gw]);
         else if ((cfamask[l] == GREENPOSITION)  && (x % 2 == bluex))
-          blue[l] = 0.5f * (blue[gn*width+x] + blue[gs*width+x]);
+          blue[l] = 0.5f * (blue[gn * width + x] + blue[gs * width + x]);
         else
-          blue[l] = 0.25f * (blue[gn*width+ge] + blue[gn*width+gw]
-              + blue[gs*width+ge] + blue[gs*width+gw]);
+          blue[l] = 0.25f * (
+            blue[gn * width + ge] +
+            blue[gn * width + gw] +
+            blue[gs * width + ge] +
+            blue[gs * width + gw]
+          );
       }
     }
   }
@@ -235,26 +239,30 @@ void rb_bilinear (
       if (cfamask[l] != REDPOSITION) {
         int gn, gs, ge, gw;
 
-        if (y > 0) gn = y-1;
+        if (y > 0) gn = y - 1;
         else gn = 1;
 
-        if (y < height-1) gs = y+1;
-        else gs = height-2;
+        if (y < height - 1) gs = y + 1;
+        else gs = height - 2;
 
-        if (x < width-1) ge = x+1;
-        else ge = width-2;
+        if (x < width - 1) ge = x + 1;
+        else ge = width - 2;
 
-        if (x > 0) gw = x-1;
+        if (x > 0) gw = x - 1;
         else gw = 1;
 
         //! Compute red
         if ((cfamask[l] == GREENPOSITION) && (y % 2 == redy))
-          red[l] = 0.5f * (red[y*width+ge] + red[y*width+gw]);
+          red[l] = 0.5f * (red[y * width + ge] + red[y * width + gw]);
         else if ((cfamask[l] == GREENPOSITION) && (x % 2 == redx))
-          red[l] = 0.5f * (red[gn*width+x] + red[gs*width+x]);
+          red[l] = 0.5f * (red[gn * width + x] + red[gs * width + x]);
         else
-          red[l] = 0.25f * (red[gn*width+ge] + red[gn*width+gw]
-              + red[gs*width+ge] + red[gs*width+gw]);
+          red[l] = 0.25f * (
+            red[gn * width + ge] +
+            red[gn * width + gw] +
+            red[gs * width + ge] +
+            red[gs * width + gw]
+          );
       }
     }
   }
@@ -296,7 +304,7 @@ void variation4d (
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         float sum = 0.0f;
-        float value0 = u[y*width+x];
+        float value0 = u[y * width + x];
 
         for (int i = -support; i <= 0; i++) {
           int s = y + i;
@@ -304,12 +312,12 @@ void variation4d (
           float value = 0.0f;
 
           if ((s > 0) && (s < height))
-            value = u[s*width+x] - value0;
+            value = u[s * width + x] - value0;
 
           sum += value * value;
         }
 
-        v[y*width+x] = sqrtf(sum / (float) support);
+        v[y * width + x] = sqrtf(sum / (float) support);
       }
     }
 
@@ -318,7 +326,7 @@ void variation4d (
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         float sum = 0.0f;
-        float value0 = u[y*width+x];
+        float value0 = u[y * width + x];
 
         for (int i = 0; i <= support; i++) {
           int s = y + i;
@@ -326,12 +334,12 @@ void variation4d (
           float value = 0.0f;
 
           if ((s > 0) && (s < height))
-            value = u[s*width+x] - value0;
+            value = u[s * width + x] - value0;
 
           sum += value * value;
         }
 
-        v[y*width+x] = sqrtf(sum / (float) support);
+        v[y * width + x] = sqrtf(sum / (float) support);
       }
     }
 
@@ -341,7 +349,7 @@ void variation4d (
       for (int x = 0; x < width; x++) {
         float sum = 0.0f;
         int l0 = y * width;
-        float value0 = u[l0+x];
+        float value0 = u[l0 + x];
 
         for (int i = -support; i <= 0; i++) {
           int s = x + i;
@@ -349,12 +357,12 @@ void variation4d (
           float value = 0.0f;
 
           if ((s > 0) && (s < width))
-            value = u[l0+s] - value0;
+            value = u[l0 + s] - value0;
 
           sum += value * value;
         }
 
-        v[l0+x] = sqrtf(sum / (float) support);
+        v[l0 + x] = sqrtf(sum / (float) support);
       }
 
   }
@@ -363,7 +371,7 @@ void variation4d (
       for (int x = 0; x < width; x++) {
         float sum = 0.0f;
         int l0 = y * width;
-        float value0 = u[l0+x];
+        float value0 = u[l0 + x];
 
         for (int i = 0; i <= support; i++) {
           int s = x + i;
@@ -371,12 +379,12 @@ void variation4d (
           float value = 0.0f;
 
           if (s > 0 && s < width)
-            value = u[l0+s] - value0;
+            value = u[l0 + s] - value0;
 
           sum += value * value;
         }
 
-        v[l0+x] = sqrtf(sum / (float) support);
+        v[l0 + x] = sqrtf(sum / (float) support);
       }
     }
   }
@@ -427,7 +435,7 @@ void local_algorithm (
 
   printf("  g_directional((arn <- red, agn <- green, abn <- blue) -> (agn), β: %5.2f, NORTH, redx: %d, redy: %d, width: %d, height: %d)\n", beta, redx, redy, width, height);
   g_directional(arn, agn, abn, beta, NORTH, redx, redy, width, height);
-  write_image("g-directional-north.tiff", agn, agn, agn,  width, height);
+  write_image((char *)"g-directional-north.tiff", agn, agn, agn,  width, height);
 
   rb_bilinear(arn, agn, abn, beta, redx, redy, width, height);
 
@@ -619,10 +627,10 @@ void adaptive_parameters (
 
   for (int j = 0; j < height; j++) {
     for (int i = 0; i < width; i++) {
-      if (i < width -1) {
-        ux = u[j*width+i+1] - u[j*width+i];
-        vx = v[j*width+i+1] - v[j*width+i];
-        yx = y[j*width+i+1] - y[j*width+i];
+      if (i < width - 1) {
+        ux = u[j * width + i + 1] - u[j * width + i];
+        vx = v[j * width + i + 1] - v[j * width + i];
+        yx = y[j * width + i + 1] - y[j * width + i];
 
       }
       else {
@@ -631,10 +639,10 @@ void adaptive_parameters (
         yx = 0.0f;
       }
 
-      if (j < height-1) {
-        uy = u[(j+1)*width+i] - u[j*width+i];
-        vy = v[(j+1)*width+i] - v[j*width+i];
-        yy = y[(j+1)*width+i] - y[j*width+i];
+      if (j < height - 1) {
+        uy = u[(j + 1) * width + i] - u[j * width + i];
+        vy = v[(j + 1) * width + i] - v[j * width + i];
+        yy = y[(j + 1) * width + i] - y[j * width + i];
 
       }
       else {
@@ -728,7 +736,7 @@ void g_filtering (
 #pragma omp parallel shared(red, green, blue, ogreen, cfamask, lut)
   {
 #pragma omp for schedule(dynamic) nowait
-    for (int y = compwind; y < height-compwind; y++) {
+    for (int y = compwind; y < height - compwind; y++) {
       // Store patch distances
       float *dist_list = new float[resdim];
       float *index_list = new float[resdim];
@@ -736,7 +744,7 @@ void g_filtering (
       fpClear(dist_list, 0.0f, resdim);
       fpClear(index_list, 0.0f, resdim);
 
-      for (int x = compwind; x < width-compwind; x++) {
+      for (int x = compwind; x < width - compwind; x++) {
         // Index of current pixel
         int l = y * width + x;
 
@@ -762,15 +770,9 @@ void g_filtering (
 
               // Compute distances
               float dist = 0.0f;
-              dist += fiL2FloatDist(red, red, x, y, i, j,
-                  compwind, compwind, width,
-                  width);
-              dist += fiL2FloatDist(green, green, x, y, i, j,
-                  compwind, compwind, width,
-                  width);
-              dist += fiL2FloatDist(blue, blue, x, y, i, j,
-                  compwind, compwind, width,
-                  width);
+              dist += fiL2FloatDist(red, red, x, y, i, j, compwind, compwind, width, width);
+              dist += fiL2FloatDist(green, green, x, y, i, j, compwind, compwind, width, width);
+              dist += fiL2FloatDist(blue, blue, x, y, i, j, compwind, compwind, width, width);
               dist /= filter;
 
               // Position of central pixel
@@ -809,11 +811,9 @@ void g_filtering (
 
             if (gcweight < fN) {
               if (cfamask[l] == BLUEPOSITION)
-                gvalue += weight * green[cindex]
-                  - weight * beta * blue[cindex];
+                gvalue += weight * green[cindex] - weight * beta * blue[cindex];
               else
-                gvalue += weight * green[cindex]
-                  - weight * beta * red[cindex];
+                gvalue += weight * green[cindex] - weight * beta * red[cindex];
 
               gcweight++;
               gweight += weight;
@@ -911,7 +911,7 @@ void rb_filtering (
 #pragma omp parallel shared(red, green, blue, ored, ogreen, oblue, cfamask, lut)
   {
 #pragma omp for schedule(dynamic) nowait
-    for (int y = compwind; y < height-compwind; y++) {
+    for (int y = compwind; y < height - compwind; y++) {
       // Store patch distances
       float *dist_list = new float[resdim];
       float *index_list = new float[resdim];
@@ -919,7 +919,7 @@ void rb_filtering (
       fpClear(dist_list, 0.0f, resdim);
       fpClear(index_list, 0.0f, resdim);
 
-      for (int x = compwind; x < width-compwind; x++) {
+      for (int x = compwind; x < width - compwind; x++) {
         // Index of current pixel
         int l = y * width + x;
 
@@ -942,15 +942,9 @@ void rb_filtering (
 
             // Compute distances
             float dist = 0.0f;
-            dist += fiL2FloatDist(red, red, x, y, i, j,
-                compwind, compwind, width,
-                width);
-            dist += fiL2FloatDist(green, green, x, y, i, j,
-                compwind, compwind, width,
-                width);
-            dist += fiL2FloatDist(blue, blue, x, y, i, j,
-                compwind, compwind, width,
-                width);
+            dist += fiL2FloatDist(red, red, x, y, i, j, compwind, compwind, width, width);
+            dist += fiL2FloatDist(green, green, x, y, i, j, compwind, compwind, width, width);
+            dist += fiL2FloatDist(blue, blue, x, y, i, j, compwind, compwind, width, width);
             dist /= filter;
 
             // Position of central pixel
@@ -1084,7 +1078,7 @@ int algorithm_chain (
 
   printf("1. local_algorithm((red, green, blue) -> (ired, igreen, iblue), β: %5.2f, ε: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, epsilon, halfL, redx, redy, width, height);
   local_algorithm(            red, green, blue,     ired, igreen, iblue,  beta, epsilon, halfL, redx, redy, width, height);
-  write_image("demosaicked.tiff",                   ired, igreen, iblue,  width, height);
+  write_image((char *)"demosaicked.tiff",                   ired, igreen, iblue,  width, height);
   //                                  ________________/      /      /
   //                                /      _________________/      /
   //                               /      /      _________________/
