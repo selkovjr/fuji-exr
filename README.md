@@ -46,7 +46,7 @@ Simply use the provided makefile, with the command `make`.
 ## USAGE
 
 ```
-dcraw -v -w -d -s -all -6 -T -b 0.7 raw.RAF
+dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
 ./fuji-exr-ssd raw_[01].tiff out.tiff
 ```
 
