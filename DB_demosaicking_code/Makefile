@@ -1,12 +1,12 @@
 COBJ	= io_png.o
-CXXOBJ	= libauxiliar.o libdemosaicking.o demosaicking_ipol.o imdiff_ipol.o
+CXXOBJ	= libauxiliar.o libdemosaicking.o duran-buades.o demosaicking_ipol.o imdiff_ipol.o
 
-BIN	= demosaicking_ipol imdiff_ipol
+BIN	= demosaicking_ipol imdiff_ipol duran-buades
 
 hdrdir= -I/usr/local/include/ -I/usr/include/
-libdir= -L/usr/local/lib/ -L/usr/lib/           
+libdir= -L/usr/local/lib/ -L/usr/lib/
 
-COPT	= -O3 -funroll-loops -fomit-frame-pointer  -Wall -Wextra  
+COPT	= -O3 -funroll-loops -fomit-frame-pointer  -Wall -Wextra
 CFLAGS  += $(COPT) $(hdrdir)
 
 LDFLAGS +=  $(libdir) -lpng
@@ -14,15 +14,15 @@ LDFLAGS +=  $(libdir) -lpng
 # use openMP with `make OMP=1`
 ifdef OMP
 CFLAGS	+= -fopenmp
-LDFLAGS += -lgomp 
+LDFLAGS += -lgomp
 endif
 
 default: $(COBJ) $(CXXOBJ)  $(BIN)
 
-$(COBJ) : %.o : %.c 
+$(COBJ) : %.o : %.c
 	$(CC) -c $(CFLAGS)   $< -o $@
 
-$(CXXOBJ) : %.o : %.cpp 
+$(CXXOBJ) : %.o : %.cpp
 	$(CXX) -std=c++98 -c $(CFLAGS)   $< -o $@
 
 $(BIN) : % : %.o  io_png.o libauxiliar.o libdemosaicking.o
@@ -30,4 +30,4 @@ $(BIN) : % : %.o  io_png.o libauxiliar.o libdemosaicking.o
 
 .PHONY : clean
 clean:
-	$(RM) $(COBJ) $(CXXOBJ) ; rm $(BIN)
+	$(RM) $(COBJ) $(CXXOBJ) ; rm -f $(BIN)
