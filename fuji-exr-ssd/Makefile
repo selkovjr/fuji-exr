@@ -1,4 +1,4 @@
-OBJ	= io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr-ssd.o
+OBJ = io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr-ssd.o
 BIN = fuji-exr-ssd
 LIBBIN=.
 
@@ -33,4 +33,4 @@ $(BIN) : % : %.o  $(LIBMX)
 
 .PHONY : clean
 clean:
-	$(RM) $(OBJ) ; cd $(LIBBIN); rm -f $(BIN)
+	$(RM) $(OBJ); cd $(LIBBIN); rm -f $(BIN)

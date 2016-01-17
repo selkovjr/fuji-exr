@@ -1,10 +1,3 @@
-fuji-exr-ssd
-============
-
-Self-similarity Driven Demosaicking of Fuji EXR images
-
-after [www.ipol.im/pub/art/2011/bcms-ssdd/](http://www.ipol.im/pub/art/2011/bcms-ssdd/)
-
 Fuji EXR filter layout:
 
 <img src="doc/image/fuji-cfm.png" width="405" height="357" />
@@ -12,34 +5,36 @@ Fuji EXR filter layout:
 
 ## ABOUT
 
-This software was originally written by A. Buades <toni.buades@uib.es>
-with contributions from Nicolas Limare.
+This collection represents attempts at decoding Fuji EXR data. None of the
+methods attempted here is entirely successful in matching the quality of Fuji's
+in-camera decoder, although under some circumstances, the results are actually
+better in some ways.
 
-Adapted to Fuji EXR by Gene Selkov <selkovjr@gmail.com>.
+One obvious set of advantages is gained just by decoding to uncomressed high
+bit-depth media:
 
-All files are distributed under the terms of the LGPLv3 license.
+  * No JPEG sharpening
+  * No compression-related blockiness
+  * Better tonal correction and white balance
+  * Higer effective dynamic range
 
+The yet unmatched performance factors of the proprietary Fuji decoder are:
 
-## OVERVIEW
+  * Noise suppression
+  * Lens correction
 
-This source code provides an implementation of the Self Similar
-demosaicking algorithm, as described in IPOL
-  http://www.ipol.im/pub/algo/bcms_self_similarity_driven_demosaicking/
+Noise appears to be the most serious issue. The EXR sensor sites are very small
+and noisy (chroma noise is particularly strong). No commonly-known noise
+suppression method can cope with such amount of nose effectively. Fuji has
+obviously done a good job but the algorithm is not known.
 
+Lens correction is another feature that Fuji has done well. Their in-camera
+JPEGs show no trace of chromatic aberration. Unlike noise reduction, lens
+correction is a better-understood process, but for the time being, this camera's
+lens parameters are not known. None of the tools presented here can fix
+distortions or chromatic aberration.
 
-## REQUIREMENTS
-
-The code is written in ANSI C, and should compile on any system with
-an ANSI C compiler.
-
-The libtiff header and libraries are required on the system for
-compilation and execution.
-
-
-
-## COMPILATION
-
-Simply use the provided makefile, with the command `make`.
+## TOOLS
 
 
 
