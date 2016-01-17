@@ -30,7 +30,7 @@
  */
 
 #include "libdemosaic.h"
-
+#include "assert.h"
 
 /**
  * \brief Fill in missing green values at each pixel by local directional
@@ -67,17 +67,20 @@ void g_directional (
     for (int y = 0; y < height; y++) {
       int l = y * width + x;
 
-      if ((x % 2 == redx) && (y % 2 == redy))
+      if ((x % 2 == redx) && (y % 2 == redy)) {
         cfamask[l] = REDPOSITION;
-      else if ((x % 2 == bluex) && (y % 2 == bluey))
+      }
+      else if ((x % 2 == bluex) && (y % 2 == bluey)) {
         cfamask[l] = BLUEPOSITION;
-      else
+      }
+      else {
         cfamask[l] = GREENPOSITION;
+      }
     }
   }
 
   // Bilinear interpolation of Green at boundaries
-  // Average of four neighbouring green pixels taking a mirror simmetry
+  // Average of four neighbouring green pixels taking a mirror symmetry
   // at the boundaries
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
@@ -127,15 +130,24 @@ void g_directional (
           color = red;
         else
           color = blue;
-
-        if (direction == NORTH)
+        if (direction == NORTH) {
           green[l] = green[l - width] + 0.5f * beta * (color[l] - color[l - 2 * width]);
-        else if (direction == SOUTH)
+        }
+        else if (direction == SOUTH) {
           green[l] = green[l + width] + 0.5f * beta * (color[l] - color[l + 2 * width]);
-        else if (direction == WEST)
+        }
+        else if (direction == WEST) {
           green[l] = green[l - 1] + 0.5f * beta * (color[l] - color[l - 2]);
-        else
+        }
+        else {
           green[l] = green[l + 1] + 0.5f * beta * (color[l] - color[l + 2]);
+        }
+        if (green[l] < 0) {
+          green[l] = 0;
+        }
+        if (green[l] > 65535) {
+          green[l] = 65535;
+        }
       }
     }
   }
@@ -194,7 +206,7 @@ void rb_bilinear (
   }
 
   // Interpolate blue making the average of neihbouring blue pixels
-  // Take a mirror simmetry at boundaries
+  // Take a mirror symmetry at boundaries
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       int l = y * width + x;
@@ -231,7 +243,7 @@ void rb_bilinear (
   }
 
   // Interpolate red making the average of neihbouring red pixels
-  // Take a mirror simmetry at boundaries
+  // Take a mirror symmetry at boundaries
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       int l = y * width + x;
@@ -271,6 +283,18 @@ void rb_bilinear (
   for (int i = 0; i < dim; i++) {
     red[i] += beta * green[i];
     blue[i] += beta * green[i];
+    if (red[i] < 0) {
+      red[i] = 0;
+    }
+    if (red[i] > 65535) {
+      red[i] = 65535;
+    }
+    if (blue[i] < 0) {
+      blue[i] = 0;
+    }
+    if (blue[i] > 65535) {
+      blue[i] = 65535;
+    }
   }
 
   // Delete allocated memory
@@ -433,10 +457,7 @@ void local_algorithm (
   fpCopy(green, agn, dim);
   fpCopy(blue, abn, dim);
 
-  printf("  g_directional((arn <- red, agn <- green, abn <- blue) -> (agn), β: %5.2f, NORTH, redx: %d, redy: %d, width: %d, height: %d)\n", beta, redx, redy, width, height);
   g_directional(arn, agn, abn, beta, NORTH, redx, redy, width, height);
-  write_image((char *)"g-directional-north.tiff", agn, agn, agn,  width, height);
-
   rb_bilinear(arn, agn, abn, beta, redx, redy, width, height);
 
   // Convert interpolated image into YUV space
@@ -759,7 +780,7 @@ void g_filtering (
 
           // Auxiliary variables for ordering distances
           int Nindex = 0;
-          int indexCentral;
+          int indexCentral = 0;
           float distMin = 10000000000.0f;
 
           // Compute distance for each pixel in the neighborhood
@@ -776,8 +797,9 @@ void g_filtering (
               dist /= filter;
 
               // Position of central pixel
-              if ((i == x) && (j == y))
+              if ((i == x) && (j == y)) {
                 indexCentral = Nindex;
+              }
 
               // Minimum distance
               if ((i != x || j != y) && (dist < distMin))
@@ -931,7 +953,7 @@ void rb_filtering (
 
         // Auxiliary variables for ordering distances
         int Nindex = 0;
-        int indexCentral;
+        int indexCentral = 0;
         float distMin = 10000000000.0f;
 
         // For each pixel in the neighborhood
@@ -1062,36 +1084,31 @@ int algorithm_chain (
 
   // Estimate beta and h if not fixed
   if (beta == 0.0f) {
-    printf("adaptive_prameteres(red, green, blue, β: %5.2f, h: %5.2f, ε: %5.2f, M: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, h, epsilon, M, halfL, redx, redy, width, height);
+    fprintf(stderr, "adaptive_prameteres(red, green, blue, β: %5.2f, h: %5.2f, ε: %5.2f, M: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, h, epsilon, M, halfL, redx, redy, width, height);
     adaptive_parameters(red, green, blue, beta, h, epsilon, M, halfL, redx, redy, width, height);
   }
 
-  printf("beta: %2.5f\n", beta);
+  fprintf(stderr, "beta: %2.5f\n", beta);
 
   // Fist step
   // Local directional interpolation with adaptive inter-channel correlation
-  printf("allocating interpolation arrays...");
   float *ired = new float[dim];
   float *igreen = new float[dim];
   float *iblue = new float[dim];
-  printf(" done\n");
 
-  printf("1. local_algorithm((red, green, blue) -> (ired, igreen, iblue), β: %5.2f, ε: %5.2f, halfL: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, epsilon, halfL, redx, redy, width, height);
-  local_algorithm(            red, green, blue,     ired, igreen, iblue,  beta, epsilon, halfL, redx, redy, width, height);
-  write_image((char *)"demosaicked.tiff",                   ired, igreen, iblue,  width, height);
-  //                                  ________________/      /      /
-  //                                /      _________________/      /
-  //                               /      /      _________________/
-  //                              /      /      /
-
-
-  // Second step
-  // Nonlocal filtering of channel differences
-  printf("2. g_filtering((ired, igreen, iblue) -> (ogreen), β: %5.2f, h: %5.2f, reswind: %d, compwind: %d, N: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, h, reswind, compwind, N, redx, redy, width, height);
-  g_filtering(ired, igreen, iblue, ogreen, beta, h, reswind, compwind, N, redx, redy, width, height);
-
-  printf("3. rb_filtering((ired, igreen, iblue, ogreen) -> (ored, oblue), β: %5.2f, h: %5.2f, reswind: %d, compwind: %d, N: %d, redx: %d, redy: %d, width: %d, height: %d)\n", beta, h, reswind, compwind, N, redx, redy, width, height);
-  rb_filtering(ired, igreen, iblue, ored, ogreen, oblue, beta, h, reswind, compwind, N, redx, redy, width, height);
+  local_algorithm(          red, green, blue,    ired, igreen, iblue,   beta, epsilon, halfL, redx, redy, width, height);
+  write_image((char *)"demosaicked.tiff",        ired, igreen, iblue,   width, height);
+  //                              ________________/      /      /
+  //                             /      ________________/      /
+  //                            /      /      ________________/
+  //                           /      /      /
+  // Second step              |      |      |
+  // Nonlocal filtering       |      |      |
+  // of channel differences   |      |      |
+  g_filtering(              ired, igreen, iblue,       ogreen,          beta, h, reswind, compwind, N, redx, redy, width, height);
+  //                          |      |      |            |
+  //                          |      |      |            |
+  rb_filtering(             ired, igreen, iblue,  ored, ogreen, oblue,  beta, h, reswind, compwind, N, redx, redy, width, height);
 
   // Delete allocated memory
   delete[] ired; delete[] igreen; delete[] iblue;

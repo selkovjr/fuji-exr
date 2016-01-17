@@ -38,7 +38,7 @@
 // Usage: duran-buades bayer.tiff decoded.tiff beta
 
 int main(int argc, char **argv) {
-  if (argc < 4) {
+  if (argc != 4) {
     printf("usage: duran-buades bayer.tiff decoded.tiff beta\n\n");
     printf("bayer.tiff   :: input Bayer-encoded image (gray scale).\n");
     printf("decoded.tiff :: demosaicked image.\n");
@@ -62,16 +62,16 @@ int main(int argc, char **argv) {
 
   // Read Bayer-encoded image
   size_t nx, ny;
-  float *mosaicked = NULL;
+  float *bayer = NULL;
   char *description;
 
   /* TIFF 16-bit grayscale -> float input */
-  if (NULL == (mosaicked = read_tiff_gray16_f32(argv[1], &nx, &ny, &description))) {
+  if (NULL == (bayer = read_tiff_gray16_f32(argv[1], &nx, &ny, &description))) {
     fprintf(stderr, "error while reading from %s\n", argv[1]);
     return EXIT_FAILURE;
   }
 
-  if (!mosaicked) {
+  if (!bayer) {
     fprintf(stderr, "Error - %s not found or not a correct TIFF image.\n", argv[1]);
     return EXIT_FAILURE;
   }
@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
   float beta = atof(argv[3]);
 
   if ((beta < 0.0f) || (beta > 1.0f)) {
-    fprintf(stderr, "Error - beta must be in range (0,1].\n");
+    fprintf(stderr, "Error - beta must be in the range (0,1].\n");
     return EXIT_FAILURE;
   }
 
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
   for (int c = 0; c < num_channels; c++)
     demosaicked[c] = new float[dim];
 
-  if (algorithm_chain(mosaicked, mosaicked, mosaicked, demosaicked[0],
+  if (algorithm_chain(bayer, bayer, bayer, demosaicked[0],
         demosaicked[1], demosaicked[2], beta, h, epsilon, M,
         halfL, reswind, compwind, N, redx, redy, width,
         height) != 1)
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
 
   // Delete allocated memory
   delete[] output_image;
-  free(mosaicked);
+  free(bayer);
 
   for (int c = 0; c < num_channels; c++) {
     delete[] demosaicked[c];
