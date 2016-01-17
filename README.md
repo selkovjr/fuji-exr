@@ -34,22 +34,66 @@ correction is a better-understood process, but for the time being, this camera's
 lens parameters are not known. None of the tools presented here can fix
 distortions or chromatic aberration.
 
+## CAMERAS
+
+  * FinePix HS50EXR (tested)
+  * Any camera with the EXR sensor (possibly, according to some success
+    reports)
+
 ## TOOLS
 
+### For super-resolution mode
 
+[fuji-exr-ssd](https://github.com/selkovjr/fuji-exr-decoders/tree/master/fuji-exr-ssd)
 
-## USAGE
-
+Typical application:
 ```
 dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
-./fuji-exr-ssd raw_[01].tiff out.tiff
+fuji-exr-ssd raw_[01].tiff out.tiff
 ```
-
-* `raw.RAF`: Fuji raw image, shot in EXR high-res mode, or in P-mode
-* `raw_[01].tiff`:  camera sensor data in 16-bit grayscale (Bayer), two frames
-* `out.tiff`:  demosaicked RGB output, rotated 45 degrees
+The output image requires additional denoising and color correction.
 
 Presently supported camera orientations: landscape (horizontal), portrait (270CCW). Other orientations need more work (interleaving rules are different for each).
+
+
+### For HDR and low-noise modes
+
+[duran-buades](https://github.com/selkovjr/fuji-exr-decoders/tree/master/Duran-Buades-2015)
+
+Typical application:
+```
+dcraw -v -w -W -d -s all -4 -T raw.RAF # save linear
+duran-buades raw_0.tiff decoded-0.tiff 0 # beta = 0: auto-tune
+duran-buades raw_1.tiff decoded-1.tiff 0
+```
+
+The output frames require additional denoising and color correction.
+
+Frames shot in low-noise mode can be averaged with:
+
+```
+convert -average decoded-[01].tiff out.tiff
+```
+
+Frames shot in HDR tools can be further processed with HDR tools. Because we
+don't have the lens data, ad-hoc tools such as [Andy Cotter's HDR
+Tools](http://ttic.uchicago.edu/~cotter/projects/hdr_tools/) might work best.
+The procedure for extracting a decent match from one test image looks as
+follows:
+
+```
+duran-buades raw_0.tiff decoded-0.tiff 0
+duran-buades raw_1.tiff decoded-1.tiff 0
+hdr_create -4 -o test.exr decoded-*tiff
+hdr_denoise -r 2 -d 4 -i test.exr -o test-denoised.exr
+hdr_convert -s 0.28 -i test.exr -o test.tiff
+hdr_convert -s 0.28 -i test-denoised.exr -o test-denoised.tiff
+time convert -average test.tiff test-denoised.tiff test-average.tiff  # averaging adds back some noise to make the final image look less blurry
+time convert test-average.tiff -level 3% -modulate 102,180,106 -gamma 1.14 -sharpen 0x1 test.tiff
+
+```
+
+Presently supported camera orientations: portrait (270CCW) (the only one tested)
 
 
 ## REFERENCES / FOOD FOR THOUGHT
