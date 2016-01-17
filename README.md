@@ -54,18 +54,19 @@ fuji-exr-ssd raw_[01].tiff out.tiff # this takes a couple minutes
 ```
 The output image requires additional denoising and color correction.
 
-Presently supported camera orientations: landscape (horizontal), portrait (270CCW). Other orientations need more work (interleaving rules are different for each).
+Presently supported camera orientations: landscape (horizontal), portrait (270 CW). Other orientations need more work (interleaving rules are different for each).
 
 
 ### For HDR and low-noise modes
 
 [duran-buades](https://github.com/selkovjr/fuji-exr-decoders/tree/master/Duran-Buades-2015)
 
-Typical application:
+Typical application (horizontal orientation (1), zero beta for automatic beta
+tuning):
 ```
 dcraw -v -w -W -d -s all -4 -T raw.RAF # save linear
-duran-buades raw_0.tiff decoded-0.tiff 0 # beta = 0: auto-tune
-duran-buades raw_1.tiff decoded-1.tiff 0
+duran-buades raw_0.tiff decoded-0.tiff 1 0
+duran-buades raw_1.tiff decoded-1.tiff 1 0
 ```
 
 The output frames require additional denoising and color correction.
@@ -83,8 +84,8 @@ The procedure for extracting a decent match from one test image looks as
 follows (it takes about 30 minutes on an old laptop):
 
 ```
-duran-buades raw_0.tiff decoded-0.tiff 0
-duran-buades raw_1.tiff decoded-1.tiff 0
+duran-buades raw_0.tiff decoded-0.tiff `exiftool -Orientation -n raw.RAF | cut -f2 -d:` 0
+duran-buades raw_1.tiff decoded-1.tiff `exiftool -Orientation -n raw.RAF | cut -f2 -d:` 0
 hdr_create -4 -o test.exr decoded-*tiff
 hdr_denoise -r 2 -d 4 -i test.exr -o test-denoised.exr
 hdr_convert -s 0.28 -i test.exr -o test.tiff
@@ -94,7 +95,11 @@ time convert test-average.tiff -level 3% -modulate 102,180,106 -gamma 1.14 -shar
 
 ```
 
-Presently supported camera orientations: portrait (270CCW) (the only one tested)
+Supported camera orientations:
+
+  1. Horizontal (normal)
+  6. Rotate 90 CW
+  8. Rotate 270 CW
 
 
 ## REFERENCES / FOOD FOR THOUGHT

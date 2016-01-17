@@ -23,12 +23,13 @@ This program reads a gray-scale TIFF image of the Bayer array and writes out
 
 Usage: duran-buades bayer.tiff output.tiff beta
 
-bayer.tiff    :: gray-scale CFA image.
-output.tiff   :: full color demosaicked image.
-beta          :: fixed channel-correlation parameter.
+bayer.tiff   :: gray-scale CFA image.
+output.tiff  :: full color demosaicked image.
+orientation  :: camera orientation (1 = Horizontal (normal), 6 = 90 CW, 8 = 270 CW)
+beta         :: fixed channel-correlation parameter.
 
-The following parameters are fixed in the main demo function:
-epsilon   : thresholding parameter avoiding numerical intrincacies when
+The following parameters are fixed in the main function:
+epsilon   : thresholding parameter avoiding numerical intrincacies(?) when
             computing local variation of chromatic components.
 M         : bounding parameter above which a discontinuity of the luminance
             gradient is considered.\n");
@@ -37,7 +38,6 @@ halfL     : half-size of the support zone where the variance of the chromatic
 reswind   : half-size of research window.
 compwind  : half-size of comparison window.
 N         : number of most similar pixels for filtering.
-redx redy : coordinates of the first red value in CFA.
 
 
 #LICENSE

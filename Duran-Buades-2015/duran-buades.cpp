@@ -38,24 +38,24 @@
 // Usage: duran-buades bayer.tiff decoded.tiff beta
 
 int main(int argc, char **argv) {
-  if (argc != 4) {
-    printf("usage: duran-buades bayer.tiff decoded.tiff beta\n\n");
-    printf("bayer.tiff   :: input Bayer-encoded image (gray scale).\n");
+  if (argc != 5) {
+    printf("usage: duran-buades bayer.tiff decoded.tiff orientation beta\n\n");
+    printf("bayer.tiff   :: input Bayer-encoded image (gray scale)\n");
     printf("decoded.tiff :: demosaicked image.\n");
-    printf("beta         :: fixed channel-correlation parameter.\n");
+    printf("orientation  :: camera orientation (1 = Horizontal (normal), 6 = 90 CW, 8 = 270 CW)\n");
+    printf("beta         :: fixed channel-correlation parameter\n");
     printf("\n");
     printf("The following parameters are fixed in main():\n");
     printf("epsilon   :: thresholding parameter avoiding numerical\n"
-        "             intrincacies when computing local variation of\n"
+        "             intrincacies(?) when computing local variation of\n"
         "             chromatic components.\n");
     printf("M         :: bounding parameter above which a discontinuity\n"
         "             of the luminance gradient is considered.\n");
     printf("halfL     :: half-size of the support zone where the variance\n"
         "             of the chromatic components is computed.\n");
-    printf("reswind   :: half-size of research window.\n");
-    printf("compwind  :: half-size of comparison window.\n");
-    printf("N         :: number of most similar pixels for filtering.\n");
-    printf("redx redy :: coordinates of the first red value in CFA.\n");
+    printf("reswind   :: half-size of search window\n");
+    printf("compwind  :: half-size of comparison window\n");
+    printf("N         :: number of most similar pixels for filtering\n");
 
     return EXIT_FAILURE;
   }
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
   int dim = width * height;
 
   // Input parameters
-  float beta = atof(argv[3]);
+  float beta = atof(argv[4]);
 
   if ((beta < 0.0f) || (beta > 1.0f)) {
     fprintf(stderr, "Error - beta must be in the range (0,1].\n");
@@ -96,6 +96,26 @@ int main(int argc, char **argv) {
     h = (310.0f * beta - 214.0f) / 3.0f;
   }
 
+  // Translate orientation to the coordianates of the first red pixel
+  int redx;
+  int redy;
+  if (atoi(argv[3]) == 1) {
+    redx = 1;
+    redy = 1;
+  }
+  else if (atoi(argv[3]) == 6) {
+    redx = 0;
+    redy = 1;
+  }
+  else if (atoi(argv[3]) == 8) {
+    redx = 1;
+    redy = 0;
+  }
+  else {
+    fprintf(stderr, "Error - unknown orientation %s.\n", argv[3]);
+    return EXIT_FAILURE;
+  }
+
   // Fixed parameters
   float epsilon = fTiny;
   float M = 13.0f;
@@ -103,8 +123,6 @@ int main(int argc, char **argv) {
   int reswind = 10;
   int compwind = 1;
   int N = 10;
-  int redx = 1;
-  int redy = 0;
 
   int num_channels = 3;
 

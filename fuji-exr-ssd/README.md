@@ -49,4 +49,4 @@ dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
 * `raw_[01].tiff`:  camera sensor data in 16-bit grayscale (Bayer), two frames
 * `out.tiff`:  demosaicked RGB output, rotated 45 degrees
 
-Presently supported camera orientations: landscape (horizontal), portrait (270CCW). Other orientations need more work (interleaving rules are different for each).
+Presently supported camera orientations: landscape (horizontal), portrait (270 CW). Other orientations need more work (interleaving rules are different for each).
