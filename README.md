@@ -22,6 +22,7 @@ The yet unmatched performance factors of the proprietary Fuji decoder are:
 
   * Noise suppression
   * Lens correction
+  * Speed (we're a couple orders of magnitude slower than the camera)
 
 Noise appears to be the most serious issue. The EXR sensor sites are very small
 and noisy (chroma noise is particularly strong). No commonly-known noise
@@ -49,7 +50,7 @@ distortions or chromatic aberration.
 Typical application:
 ```
 dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
-fuji-exr-ssd raw_[01].tiff out.tiff
+fuji-exr-ssd raw_[01].tiff out.tiff # this takes a couple minutes
 ```
 The output image requires additional denoising and color correction.
 
@@ -75,11 +76,11 @@ Frames shot in low-noise mode can be averaged with:
 convert -average decoded-[01].tiff out.tiff
 ```
 
-Frames shot in HDR tools can be further processed with HDR tools. Because we
+Frames shot in HDR mode can be further processed with HDR tools. Because we
 don't have the lens data, ad-hoc tools such as [Andy Cotter's HDR
 Tools](http://ttic.uchicago.edu/~cotter/projects/hdr_tools/) might work best.
 The procedure for extracting a decent match from one test image looks as
-follows:
+follows (it takes about 30 minutes on an old laptop):
 
 ```
 duran-buades raw_0.tiff decoded-0.tiff 0
