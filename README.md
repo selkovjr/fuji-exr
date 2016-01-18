@@ -36,11 +36,11 @@ correction is a better-understood process, but for the time being, this camera's
 lens parameters are not known. None of the tools presented here can fix
 distortions or chromatic aberration.
 
-The Duran-Buades gradient optimization algorithm has been shown to produce no
+The Duran-Buades inter-channel correlation decoder has been shown to produce no
 color artifacts in either Kodak or IMAX test images. It mostly works fine with
 Fuji EXR images, although it does create noticeable color artifacts around thin
 lines. It is possible that its gradient optimization algorithm gets overpowered
-by noise resulting in the choice of a wrong gradient.
+by noise, resulting in the choice of a wrong gradient.
 
 ## CAMERAS
 
