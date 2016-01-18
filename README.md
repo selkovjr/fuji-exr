@@ -22,6 +22,7 @@ The yet unmatched performance factors of the proprietary Fuji decoder are:
 
   * Noise suppression
   * Lens correction
+  * The absence of false colors around small details
   * Speed (we're a couple orders of magnitude slower than the camera)
 
 Noise appears to be the most serious issue. The EXR sensor sites are very small
@@ -34,6 +35,12 @@ JPEGs show no trace of chromatic aberration. Unlike noise reduction, lens
 correction is a better-understood process, but for the time being, this camera's
 lens parameters are not known. None of the tools presented here can fix
 distortions or chromatic aberration.
+
+The Duran-Buades gradient optimization algorithm has been shown to produce no
+color artifacts in either Kodak or IMAX test images. It mostly works fine with
+Fuji EXR images, although it does create noticeable color artifacts around thin
+lines. It is possible that its gradient optimization algorithm gets overpowered
+by noise resulting in the choice of a wrong gradient.
 
 ## CAMERAS
 
