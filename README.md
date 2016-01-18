@@ -50,6 +50,8 @@ by noise, resulting in the choice of a wrong gradient.
 
 ## TOOLS
 
+_None of these tools can be used to fix highlight clipping_
+
 ### For super-resolution mode
 
 [fuji-exr-ssd](https://github.com/selkovjr/fuji-exr-decoders/tree/master/fuji-exr-ssd)
