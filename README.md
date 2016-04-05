@@ -42,6 +42,25 @@ Fuji EXR images, although it does create noticeable color artifacts around thin
 lines. It is possible that its gradient optimization algorithm gets overpowered
 by noise, resulting in the choice of a wrong gradient.
 
+## UPDATE
+
+From a tediously numerous series of failed experiments, it becomes clear that
+the problem of lens correction must be solved before attempting any of the 
+demosaicing methods listed below. The extent of longitudinal chromatic aberration
+in the HS50EXR is measured in multiple pixels, while the decoder algorithms people
+have developed for high-quality lenses typically depend on the computation of
+gradients with sub-pixel resolution.
+
+I have only recently discovered [Daniel Blueman' thesis](http://www.cs.bris.ac.uk/Publications/Papers/2001510.pdf),
+where expresses a similar understanding:
+
+> if LCA correction is performed before demosaicing the sensor array,
+> the advanced demosaicing algorithm will be able to use the true edges
+> and not edges introduced from LCA artifacts.
+
+I am going to attempt to productize the algorithms outlined in Daniel's thesis.
+
+
 ## CAMERAS
 
   * FinePix HS50EXR (tested)
