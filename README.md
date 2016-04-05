@@ -52,7 +52,7 @@ have developed for high-quality lenses typically depend on the computation of
 gradients with sub-pixel resolution.
 
 I have only recently discovered [Daniel Blueman' thesis](http://www.cs.bris.ac.uk/Publications/Papers/2001510.pdf),
-where expresses a similar understanding:
+where he expresses a similar understanding:
 
 > if LCA correction is performed before demosaicing the sensor array,
 > the advanced demosaicing algorithm will be able to use the true edges
