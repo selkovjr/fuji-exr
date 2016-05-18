@@ -45,7 +45,7 @@ by noise, resulting in the choice of a wrong gradient.
 ## UPDATE
 
 From a tediously numerous series of failed experiments, it becomes clear that
-the problem of lens correction must be solved before attempting any of the 
+the problem of lens correction must be solved before attempting any of the
 demosaicing methods listed below. The extent of longitudinal chromatic aberration
 in the HS50EXR is measured in multiple pixels, while the decoder algorithms people
 have developed for high-quality lenses typically depend on the computation of
@@ -59,6 +59,25 @@ where he expresses a similar understanding:
 > and not edges introduced from LCA artifacts.
 
 I am going to attempt to productize the algorithms outlined in Daniel's thesis.
+
+*23 May 2016*: The first attempt to use Daniel's coefficient recovery algorithm
+resulted a failure. Apparently, the error function corresponding to this camera
+is not as well-behaved as those he investigated. He comments on his error
+function:
+
+> It can be seen that there is a clear global minimum, thus robustness is
+> expected within the limits.
+
+His algorithm uses the Limited-memory BFGS-Bounded (L-BFGS-B) constrained
+optimiser, which is reported to work well on this surface (illustrated as a
+function of **a** and **b**, with **c** and **d** fixed at 0):
+<img src="doc/image/norm-rg-blueman.png" width="405" height="357" />
+
+When I use L-BFGS-B on my camera's error function (the only one I mapped out so
+far, at _F = 6.8mm_), it gets trapped in false minima which pretty much block
+all reasonable approaches to the optimum:
+
+<img src="doc/image/norm-rg-0.04.png" width="405" height="357" />
 
 
 ## CAMERAS
