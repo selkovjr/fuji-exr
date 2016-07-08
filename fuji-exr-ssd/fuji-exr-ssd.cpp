@@ -50,99 +50,137 @@
 int main(int argc, char **argv) {
   size_t nx0 = 0, ny0 = 0;
   size_t nx1 = 0, ny1 = 0;
+  size_t nx2 = 0, ny2 = 0;
   char *description;
   unsigned long origWidth;
   unsigned long origHeight;
   unsigned long width;
-  float *frame0, *frame1;
+  float *frame0, *frame1, *frame2; // Bayer EXR frames or TCA-corrected R, G, B
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
   bool landscape = false;
+  bool corrected = false; // TCA-corrected input
 
   /* version info */
-  if (2 <= argc && 0 == strcmp("-v", argv[1])) {
+  if (argc >= 2 && strcmp("-v", argv[1]) == 0) {
     fprintf(stdout, "%s version " __DATE__ "\n", argv[0]);
     return EXIT_SUCCESS;
   }
 
+  if (argc >= 2 && strcmp("-c", argv[1]) == 0) {
+    corrected = true;
+  }
+
   /* sanity check */
-  if (4 != argc) {
-    fprintf(stderr, "usage : %s input_0.tiff input_1.tiff output.tiff\n", argv[0]);
+  if ((corrected and argc != 8) or argc != 4) {
+    fprintf(stderr, "usage: %s input_frame_0.tiff input_frame_1.tiff output.tiff\n", argv[0]);
+    fprintf(stderr, "       %s -c width height tca-corrected-r.tiff g.tiff tca-corrected-b.tiff output.tiff\n", argv[0]);
     return EXIT_FAILURE;
   }
 
-  /* TIFF 16-bit grayscale -> float input */
-  if (NULL == (frame0 = read_tiff_gray16_f32(argv[1], &nx0, &ny0, &description))) {
-    fprintf(stderr, "error while reading from %s\n", argv[1]);
-    return EXIT_FAILURE;
-  }
-  if (NULL == (frame1 = read_tiff_gray16_f32(argv[1], &nx1, &ny1, &description))) {
-    fprintf(stderr, "error while reading from %s\n", argv[2]);
-    return EXIT_FAILURE;
-  }
-  if (nx0 != nx1 or ny0 != ny1) {
-    fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
-    return EXIT_FAILURE;
-  }
-  origWidth = nx0;
-  origHeight = ny0;
-  width = origWidth + origHeight;
+  if (corrected) {
+    origWidth = atoi(argv[2]);
+    origHeight = atoi(argv[3]);
+    width = origWidth + origHeight;
 
-  if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
-    fprintf(stderr, "allocation error. not enough memory?\n");
-    return EXIT_FAILURE;
-  }
-  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
-    fprintf(stderr, "allocation error. not enough memory?\n");
-    return EXIT_FAILURE;
-  }
-
-  for (unsigned long i = 0; i < width * width * 3; i++) {
-    data_in[i] = 0;
-  }
-  for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
-    if (origWidth > origHeight) {
-      // Landscape
-      //
-      // B........G
-      // ..........
-      // ..........
-      // G........R
-      //
-      landscape = true;
-      unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
-      unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-      unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
-      data_in[y * width + x0] = frame0[i];
-      data_in[y * width + x1] = frame1[i];
-      data_in[y * width + x0 + width * width] = frame0[i];
-      data_in[y * width + x1 + width * width] = frame1[i];
-      data_in[y * width + x0 + width * width * 2] = frame0[i];
-      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    /* TIFF 16-bit grayscale -> float input */
+    if (NULL == (frame0 = read_tiff_gray16_f32(argv[4], &nx0, &ny0, &description))) {
+      fprintf(stderr, "error while reading from %s\n", argv[4]);
+      return EXIT_FAILURE;
     }
-    else {
-      // Portrait 270° CW
-      //
-      //  G.....R
-      //  .......
-      //  .......
-      //  .......
-      //  B.....G
-      //
-      unsigned long x0 = origHeight - 1 + i % origWidth - (unsigned long)(i / origWidth);
-      unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-      unsigned long y = i % origWidth + (unsigned long)(i / origWidth);
-      data_in[y * width + x0] = frame0[i];
-      data_in[y * width + x1] = frame1[i];
-      data_in[y * width + x0 + width * width] = frame0[i];
-      data_in[y * width + x1 + width * width] = frame1[i];
-      data_in[y * width + x0 + width * width * 2] = frame0[i];
-      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    if (NULL == (frame1 = read_tiff_gray16_f32(argv[5], &nx1, &ny1, &description))) {
+      fprintf(stderr, "error while reading from %s\n", argv[5]);
+      return EXIT_FAILURE;
     }
-  }
-  fprintf(stderr, "merged input frames\n");
+    if (NULL == (frame2 = read_tiff_gray16_f32(argv[6], &nx2, &ny2, &description))) {
+      fprintf(stderr, "error while reading from %s\n", argv[6]);
+      return EXIT_FAILURE;
+    }
+    if (nx0 != nx1 or nx0 != nx2 or nx1 != nx2 or ny0 != ny1 or ny0 != ny2 or ny1 != ny2) {
+      fprintf(stderr, "Input frames must have identical size. Got %ldx%ld, %ldx%ld, %ldx%ld\n", nx0, ny0, nx1, ny1, nx2, ny2);
+      return EXIT_FAILURE;
+    }
+    if (nx0 + ny0 != width) {
+      fprintf(stderr, "Stated image geometry (%ldx%ld) does not fit input frames (%ldx%ld)\n", nx0, ny0, width, width);
+      return EXIT_FAILURE;
+    }
+    return 0;
 
-  write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
+  }
+  else {
+    /* TIFF 16-bit grayscale -> float input */
+    if (NULL == (frame0 = read_tiff_gray16_f32(argv[1], &nx0, &ny0, &description))) {
+      fprintf(stderr, "error while reading from %s\n", argv[1]);
+      return EXIT_FAILURE;
+    }
+    if (NULL == (frame1 = read_tiff_gray16_f32(argv[2], &nx1, &ny1, &description))) {
+      fprintf(stderr, "error while reading from %s\n", argv[2]);
+      return EXIT_FAILURE;
+    }
+    if (nx0 != nx1 or ny0 != ny1) {
+      fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
+      return EXIT_FAILURE;
+    }
+    origWidth = nx0;
+    origHeight = ny0;
+    width = origWidth + origHeight;
+
+    if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
+      fprintf(stderr, "allocation error. not enough memory?\n");
+      return EXIT_FAILURE;
+    }
+    if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
+      fprintf(stderr, "allocation error. not enough memory?\n");
+      return EXIT_FAILURE;
+    }
+
+    for (unsigned long i = 0; i < width * width * 3; i++) {
+      data_in[i] = 0;
+    }
+    for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
+      if (origWidth > origHeight) {
+        // Landscape
+        //
+        // B........G
+        // ..........
+        // ..........
+        // G........R
+        //
+        landscape = true;
+        unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
+        unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+        unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
+        data_in[y * width + x0] = frame0[i];
+        data_in[y * width + x1] = frame1[i];
+        data_in[y * width + x0 + width * width] = frame0[i];
+        data_in[y * width + x1 + width * width] = frame1[i];
+        data_in[y * width + x0 + width * width * 2] = frame0[i];
+        data_in[y * width + x1 + width * width * 2] = frame1[i];
+      }
+      else {
+        // Portrait 270° CW
+        //
+        //  G.....R
+        //  .......
+        //  .......
+        //  .......
+        //  B.....G
+        //
+        unsigned long x0 = origHeight - 1 + i % origWidth - (unsigned long)(i / origWidth);
+        unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+        unsigned long y = i % origWidth + (unsigned long)(i / origWidth);
+        data_in[y * width + x0] = frame0[i];
+        data_in[y * width + x1] = frame1[i];
+        data_in[y * width + x0 + width * width] = frame0[i];
+        data_in[y * width + x1 + width * width] = frame1[i];
+        data_in[y * width + x0 + width * width * 2] = frame0[i];
+        data_in[y * width + x1 + width * width * 2] = frame1[i];
+      }
+    }
+    fprintf(stderr, "merged input frames\n");
+
+    write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
+  }
 
   /* process */
   ssd_demosaic_chain(
