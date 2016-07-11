@@ -60,7 +60,6 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
   if (
     1 != TIFFGetField(fp, TIFFTAG_IMAGEWIDTH, &width) ||
     1 != TIFFGetField(fp, TIFFTAG_IMAGELENGTH, &height) ||
-    1 != TIFFGetField(fp, TIFFTAG_IMAGEDESCRIPTION, &c) ||
     1 != TIFFGetField(fp, TIFFTAG_PLANARCONFIG, &config) ||
     NULL == (buf = _TIFFmalloc(TIFFScanlineSize(fp))) ||
     NULL == (data = (float *) malloc(3 * width * height * sizeof(float)))
@@ -69,12 +68,23 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
     return NULL;
   }
 
+  if (1 != TIFFGetField(fp, TIFFTAG_IMAGEDESCRIPTION, &c)) {
+    fprintf(stderr, "Warning: TIFFTAG_IMAGEDESCRIPTION could not be read\n");
+  }
+  fprintf(stderr, "TIFF description: %s\n", c);
+
   if (NULL != nx)
     *nx = (size_t) width;
   if (NULL != ny)
     *ny = (size_t) height;
-  if (NULL != description)
-    *description = strdup(c);
+  if (NULL != description) {
+    if (c == NULL) {
+      *description = "None";
+    }
+    else {
+      *description = strdup(c);
+    }
+  }
 
   TIFFGetField(fp, TIFFTAG_SAMPLESPERPIXEL, &nsamples);
   fprintf(stderr, "samples: %d, width: %d, height: %d\n", nsamples, width, height);
