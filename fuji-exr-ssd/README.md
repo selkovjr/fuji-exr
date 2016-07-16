@@ -40,6 +40,8 @@ Simply use the provided makefile, with the command `make`.
 
 ## USAGE
 
+### Straight from camera
+
 ```
 dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
 ./fuji-exr-ssd raw_[01].tiff out.tiff
@@ -50,3 +52,14 @@ dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
 * `out.tiff`:  demosaicked RGB output, rotated 45 degrees
 
 Presently supported camera orientations: landscape (horizontal), portrait (270 CW). Other orientations need more work (interleaving rules are different for each).
+
+### From distorted EXR Bayer after correcting chromatic aberration
+
+```
+dcraw -d -s all -4 -T 160206_172303.RAF
+fuji-exr-interpolate 160206_172303_* interpolated.tiff
+convert interpolated.tiff -separate interpolated-%d.tiff
+radial-distort 1.002002 -0.006203 0.008245 -0.003979 interpolated-0.tiff interpolated-distorted-0.tiff
+radial-distort 1.000725 -0.000260 -0.001201 0.000909 interpolated-2.tiff interpolated-distorted-2.tiff
+fuji-exr-ssd -c 3264 2464 interpolated-distorted-0.tiff interpolated-1.tiff interpolated-distorted-2.tiff out.tiff
+```
