@@ -68,7 +68,8 @@ void g_directional(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char* mask
 );
 
 
@@ -88,7 +89,8 @@ void bilinear_red_blue(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char* mask
 );
 
 
@@ -120,7 +122,8 @@ void demosaic_nlmeans(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char* mask
 );
 
 
@@ -183,7 +186,8 @@ void ssd_demosaic_chain(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char* mask
 );
 
 #endif

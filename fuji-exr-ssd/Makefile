@@ -1,6 +1,6 @@
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 
-OBJ = ssd.o io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o
+OBJ = ssd.o cfa_mask.o io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o
 BIN = fuji-exr
 LIBBIN=.
 
@@ -17,7 +17,7 @@ CFLAGS += -g -O3 -D VERSION=\"$(GIT_VERSION)\" \
 LDFLAGS += -g $(CFLAGS) $(LIBDIR) -ltiff
 
 
-LIBMX=ssd.o io_tiff.o libAuxiliary.o libdemosaic.o
+LIBMX=ssd.o cfa_mask.o io_tiff.o libAuxiliary.o libdemosaic.o
 
 default: $(OBJ) $(BIN)
 

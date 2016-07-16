@@ -74,41 +74,12 @@ void g_directional(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char *mask
 ) {
   wxCopy(ired, ored, width * height);
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
-
-  // CFA Mask indicating which color each sensor pixel has
-  unsigned char* mask = (unsigned char *) malloc(width * height * sizeof(unsigned char));
-
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int p = y * width + x;
-      if (
-        x + y >= origWidth - 1 &&                   // NW boundary
-        y > x - origWidth - 1 &&                    // NE boundary
-        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
-        x > y - origWidth                           // SW boundary
-      ) {
-        if (y % 2 == 0) {
-          mask[p] = GREENPOSITION;
-        }
-        else {
-          if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
-            mask[p] = REDPOSITION;
-          }
-          else {
-            mask[p] = BLUEPOSITION;
-          }
-        }
-      }
-      else {
-        mask[p] = BLANK;
-      }
-    }
-  }
 
   // Interpolate the green channel in the 4-pixel-wide boundary by inverse
   // distance weighting.
@@ -374,9 +345,8 @@ void g_directional(
   fprintf(stderr, "green channel interpolated\n");
 
   // compute the bilinear on the differences of the red and blue with the already interpolated green
-  bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight);
+  bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight, mask);
 
-  free(mask);
   fprintf(stderr, "demosaic complete\n");
 } // g_directional();
 
@@ -401,39 +371,9 @@ void bilinear_red_blue(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char *mask
 ) {
-  // Mask of color per pixel
-  unsigned char* mask = (unsigned char *) malloc(width*height*sizeof(unsigned char));
-
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      if (
-        x + y >= origWidth - 1 &&                   // NW boundary
-        y > x - origWidth - 1 &&                    // NE boundary
-        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
-        x > y - origWidth                           // SW boundary
-      ) {
-        int p = y * width + x;
-        // The raw image has zeroes in all channels outside the sensor area
-        if (y % 2 == 0) {
-          mask[p] = GREENPOSITION;
-        }
-        else {
-          if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
-            mask[p] = REDPOSITION;
-          }
-          else {
-            mask[p] = BLUEPOSITION;
-          }
-        }
-      }
-      else {
-        mask[y * width + x] = BLANK;
-      }
-    }
-  }
-
   // Compute the differences
   for (int i = 0; i < width * height; i++) {
     ored[i] -= ogreen[i];
@@ -788,7 +728,6 @@ void bilinear_red_blue(
     // oblue[i] *= 1.845238;
   }
 
-  free(mask);
 } // bilinear_red_blue()
 
 
@@ -830,45 +769,14 @@ void demosaic_nlmeans(
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char *mask
 ) {
   fprintf(stderr, "running NLM interpolation...\n");
-
-  // CFA Mask indicating which color each sensor pixel has
-  unsigned char *cfamask = new unsigned char[width*height];
 
   wxCopy(ired, ored, width * height);
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
-
-
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int p = y * width + x;
-      if (
-        x + y >= origWidth - 1 &&                   // NW boundary
-        y > x - origWidth - 1 &&                    // NE boundary
-        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
-        x > y - origWidth                           // SW boundary
-      ) {
-        if (y % 2 == 0) {
-          cfamask[p] = GREENPOSITION;
-        }
-        else {
-          if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
-            cfamask[p] = REDPOSITION;
-          }
-          else {
-            cfamask[p] = BLUEPOSITION;
-          }
-        }
-      }
-      else {
-        cfamask[p] = BLANK;
-      }
-    }
-  }
-
 
   // Tabulate the function Exp(-x) for x > 0.
   int luttaille = (int) (LUTMAX * LUTPRECISION);
@@ -881,12 +789,12 @@ void demosaic_nlmeans(
     for (int x = 2; x < width - 2; x++) {
       int p = y * width + x;
       if (
-        cfamask[p] != BLANK and
+        mask[p] != BLANK and
         (
-         x + y >= origWidth + 3 + bloc - 1 and                    // NW boundary
+         x + y >= origWidth + 3 + bloc - 1 and                  // NW boundary
          x < y + origWidth - 3 - bloc + 1 and                   // NE boundary
          x + y < origWidth + 2 * origHeight - 5 - bloc + 1 and  // SE boundary
-         y < x + origWidth - 4 - bloc + 1                      // SW boundary
+         y < x + origWidth - 4 - bloc + 1                       // SW boundary
         )
       ) {
         // Learning zone depending on window size
@@ -914,7 +822,7 @@ void demosaic_nlmeans(
             int n = j * width + i;
 
             // We only interpolate channels other than the current pixel channel
-            if (cfamask[p] != cfamask[n]) {
+            if (mask[p] != mask[n]) {
 
               // Distances computed on color
               float sum = 0.0;
@@ -931,11 +839,11 @@ void demosaic_nlmeans(
               float weight = sLUT(sum, lut);
 
               // Add pixel to corresponding channel average
-              if (cfamask[n] == GREENPOSITION)  {
+              if (mask[n] == GREENPOSITION)  {
                 green += weight * igreen[n];
                 gweight += weight;
               }
-              else if (cfamask[n] == REDPOSITION) {
+              else if (mask[n] == REDPOSITION) {
                 red += weight * ired[n];
                 rweight += weight;
               }
@@ -951,19 +859,18 @@ void demosaic_nlmeans(
 
 
         // Set value to current pixel
-        if (cfamask[p] != GREENPOSITION && gweight > fTiny) ogreen[p] = green / gweight;
+        if (mask[p] != GREENPOSITION && gweight > fTiny) ogreen[p] = green / gweight;
         else ogreen[p] = igreen[p];
 
-        if ( cfamask[p] != REDPOSITION && rweight > fTiny) ored[p] = red / rweight;
+        if ( mask[p] != REDPOSITION && rweight > fTiny) ored[p] = red / rweight;
         else ored[p] = ired[p];
 
-        if (cfamask[p] != BLUEPOSITION && bweight > fTiny) oblue[p] = blue / bweight;
+        if (mask[p] != BLUEPOSITION && bweight > fTiny) oblue[p] = blue / bweight;
         else  oblue[p] = iblue[p];
       }
     }
   }
 
-  delete[] cfamask;
   delete[] lut;
   fprintf(stderr, "NLM denoising done for h = %f\n", h);
 }
@@ -1112,7 +1019,8 @@ void ssd_demosaic_chain (
   int width,
   int height,
   int origWidth,
-  int origHeight
+  int origHeight,
+  unsigned char *mask
 ) {
 
   ////////////////////////////////////////////// Process
@@ -1135,13 +1043,13 @@ void ssd_demosaic_chain (
   // //                                                                 output
   // write_image("median.tiff",                                    ired, igreen, iblue,  width, height);
 
-  g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight, mask);
   write_image("demosaicked.tiff",                    ored, ogreen, oblue,  width, height);
   //                                  ________________/      /      /
   //                                /      _________________/      /
   //                               /      /      _________________/
   //                              /      /      /
-  demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
+  demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight, mask);
   write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
   //                                            ______/      /      /
   //                                           /      ______/      /

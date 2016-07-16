@@ -37,15 +37,11 @@
 #include <error.h>
 #include <algorithm>
 
+#include "cfa_mask.h"
 #include "libdemosaic.h"
 #include "io_tiff.h"
 #include "tiffio.h"
 #include "libAuxiliary.h"
-
-#define BLANK 0
-#define REDPOSITION 1
-#define GREENPOSITION 2
-#define BLUEPOSITION 3
 
 #define DIAG 1.4142136
 #define DIAG12 2.236 // sqrt(5)
@@ -117,7 +113,7 @@ static char doc_ssd[] =
 "\n"
 ;
 
-static error_t parse_ssd(int key, char* arg, struct argp_state* state) {
+static error_t parse_ssd_command(int key, char* arg, struct argp_state* state) {
   struct arg_ssd* arguments = (struct arg_ssd*)state->input;
   char **nonopt;
 
@@ -186,7 +182,7 @@ static struct argp_option options_ssd[] = {
 
 static struct argp argp_ssd = {
   options_ssd,
-  parse_ssd,
+  parse_ssd_command,
   args_doc_ssd,
   doc_ssd
 };
@@ -194,41 +190,32 @@ static struct argp argp_ssd = {
 
 
 void run_ssd (struct argp_state* state) {
+  // command-line stuff
   struct arg_ssd args;
   int    argc = state->argc - state->next + 1;
   char** argv = &state->argv[state->next - 1];
   char*  argv0 =  argv[0];
+  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" ssd") + 1);
+  if (!argv[0]) argp_failure(state, 1, ENOMEM, 0);
+  sprintf(argv[0], "%s ssd", state->name);
+  args.merged_cfa = false; // default value -- important!
+  argp_parse(&argp_ssd, argc, argv, ARGP_IN_ORDER, &argc, &args);
+  free(argv[0]);
+  argv[0] = argv0;
+  state->next += argc - 1;
 
+  // Processing starts here
   size_t nx0 = 0, ny0 = 0;
   size_t nx1 = 0, ny1 = 0;
   size_t nx2 = 0, ny2 = 0;
   char *description;
   unsigned long origWidth;
   unsigned long origHeight;
-  unsigned long width, height;
+  unsigned long width;
   float *frame0, *frame1, *frame2; // Bayer EXR frames or TCA-corrected R, G, B
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
   bool landscape = false;
-
-
-  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" ssd") + 1);
-
-  if (!argv[0]) {
-    argp_failure(state, 1, ENOMEM, 0);
-  }
-
-  sprintf(argv[0], "%s ssd", state->name);
-
-  // Default value
-  args.merged_cfa = false;
-  argp_parse(&argp_ssd, argc, argv, ARGP_IN_ORDER, &argc, &args);
-
-  free(argv[0]);
-
-  argv[0] = argv0;
-
-  state->next += argc - 1;
 
   if (args.merged_cfa) {
     printf("geometry: %s\n", args.geometry);
@@ -240,7 +227,7 @@ void run_ssd (struct argp_state* state) {
       fprintf(stderr, "error parsing image geometry '%s'\n", args.geometry);
       exit(EXIT_FAILURE);
     }
-    width = height = origWidth + origHeight;
+    width = origWidth + origHeight;
 
     /* TIFF 16-bit grayscale -> float input */
     if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
@@ -268,36 +255,6 @@ void run_ssd (struct argp_state* state) {
     if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
       fprintf(stderr, "allocation error. not enough memory?\n");
       exit(EXIT_FAILURE);
-    }
-
-    // CFA Mask indicating which color each sensor pixel has
-    unsigned char* mask = (unsigned char *) malloc(width * height * sizeof(unsigned char));
-
-    for (unsigned y = 0; y < height; y++) {
-      for (unsigned x = 0; x < width; x++) {
-        unsigned p = y * width + x;
-        if (
-          x + y >= origWidth - 1 &&                   // NW boundary
-          y > x - origWidth - 1 &&                    // NE boundary
-          x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
-          x > y - origWidth                           // SW boundary
-        ) {
-          if (y % 2 == 0) {
-            mask[p] = GREENPOSITION;
-          }
-          else {
-            if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
-              mask[p] = REDPOSITION;
-            }
-            else {
-              mask[p] = BLUEPOSITION;
-            }
-          }
-        }
-        else {
-          mask[p] = BLANK;
-        }
-      }
     }
 
     for (unsigned long i = 0; i < width * width * 3; i++) {
@@ -436,6 +393,10 @@ void run_ssd (struct argp_state* state) {
     exit(EXIT_FAILURE);
   }
 
+  fprintf(stderr, "computing CFA mask ... ");
+  unsigned char *mask = cfa_mask(width, width, origWidth, origHeight);
+  fprintf(stderr, "done\n");
+
   /* process */
   ssd_demosaic_chain(
     data_in,
@@ -447,7 +408,8 @@ void run_ssd (struct argp_state* state) {
     (int) width,
     (int) width,
     landscape ? origWidth : origHeight,
-    landscape ? origHeight : origWidth
+    landscape ? origHeight : origWidth,
+    mask
   );
 
   /* limit to 0-65535 */
@@ -464,6 +426,7 @@ void run_ssd (struct argp_state* state) {
   fprintf(stderr, "writing output to %s\n", args.output_file);
   write_tiff_rgb_f32(args.output_file, data_out, width, width);
 
+  delete[] mask;
   free(data_in);
   free(data_out);
 
