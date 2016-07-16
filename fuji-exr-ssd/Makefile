@@ -1,36 +1,31 @@
-OBJ = io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr-ssd.o
-#OBJ = io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr-interpolate.o
-BIN = fuji-exr-ssd
-#BIN = fuji-exr-interpolate
-LIBBIN=.
+GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 
+OBJ = ssd.o io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o
+BIN = fuji-exr
+LIBBIN=.
 
 CXX=g++
 
-
-hdrdir=-I/opt/local/include/ -I/usr/local/include/
-libdir=-L/opt/local/lib/ -L/usr/local/lib/
-
-
-#COPT = -O3 -funroll-loops -fomit-frame-pointer  -fno-tree-pre -falign-loops -ffast-math -ftree-vectorize
-COPT = -O3 -funroll-loops -fomit-frame-pointer -ffast-math -ftree-vectorize -Wno-c++11-long-long
-CXXFLAGS  +=  -g $(COPT)  -Weffc++  -pedantic -Wall -Wextra  -Wno-write-strings  -Wno-deprecated    $(hdrdir)
-LDFLAGS +=  -g $(CXXFLAGS) $(libdir) -ltiff
+HDRDIR=-I/opt/local/include/ -I/usr/local/include/
+LIBDIR=-L/opt/local/lib/ -L/usr/local/lib/
 
 
-LIBMX=io_tiff.o libAuxiliary.o libdemosaic.o
+CFLAGS += -g -O3 -D VERSION=\"$(GIT_VERSION)\" \
+  -funroll-loops -fomit-frame-pointer  -fno-tree-pre -falign-loops -ffast-math -ftree-vectorize \
+  -Weffc++ -pedantic -Wall -Wextra  -Wno-write-strings -Wno-deprecated  $(HDRDIR)
+
+LDFLAGS += -g $(CFLAGS) $(LIBDIR) -ltiff
 
 
-default: $(OBJ)  $(BIN)
+LIBMX=ssd.o io_tiff.o libAuxiliary.o libdemosaic.o
 
+default: $(OBJ) $(BIN)
 
 $(OBJ) : %.o : %.cpp
-	$(CXX) -c $(CXXFLAGS)   $< -o $@
-
+	$(CXX) -c $(CFLAGS)  $< -o $@
 
 $(BIN) : % : %.o  $(LIBMX)
 	$(CXX) -o $(LIBBIN)/$@  $^ $(LDFLAGS)
-
 
 
 .PHONY : clean
