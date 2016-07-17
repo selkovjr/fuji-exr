@@ -1,23 +1,9 @@
 #include <argp.h>
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <error.h>
-#include <algorithm>
 
 #include "subcommands.h"
-#include "cfa_mask.h"
-#include "io_tiff.h"
-#include "tiffio.h"
-#include "libAuxiliary.h"
-
-
-#define DIAG 1.4142136
-#define DIAG12 2.236 // sqrt(5)
-
-#define DUMP_STAGES
-#undef DEBUG_GREEN
 
 const char *argp_program_version = VERSION " " __DATE__;
 
