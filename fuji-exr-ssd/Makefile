@@ -1,6 +1,6 @@
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 
-OBJ = ssd.o linear.o cfa_mask.o io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o
+OBJ = ssd.o linear.o rotate.o cfa_mask.o io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o progressbar.o
 BIN = fuji-exr
 LIBBIN=.
 
@@ -14,10 +14,10 @@ CFLAGS += -g -O3 -D VERSION=\"$(GIT_VERSION)\" \
   -fopenmp -funroll-loops -fomit-frame-pointer  -fno-tree-pre -falign-loops -ffast-math -ftree-vectorize \
   -Weffc++ -pedantic -Wall -Wextra  -Wno-write-strings -Wno-deprecated  $(HDRDIR)
 
-LDFLAGS += -g $(CFLAGS) $(LIBDIR) -ltiff -lgomp -lpthread
+LDFLAGS += -g $(CFLAGS) $(LIBDIR) -ltiff -lncurses -lgomp -lpthread
 
 
-LIBMX=ssd.o linear.o cfa_mask.o io_tiff.o libAuxiliary.o libdemosaic.o
+LIBMX=ssd.o linear.o rotate.o cfa_mask.o io_tiff.o libAuxiliary.o libdemosaic.o progressbar.o
 
 default: $(OBJ) $(BIN)
 

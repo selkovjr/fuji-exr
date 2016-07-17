@@ -199,8 +199,7 @@ void run_linear (struct argp_state* state) {
 
   start_time = clock();
   for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
-    if (cfaWidth > cfaHeight) {
-      // Landscape
+    if (landscape) {
       //
       // B........G
       // ..........

@@ -24,8 +24,11 @@
 
 
 #include <algorithm>
+#include <ctime>
+#include <unistd.h>
 #include "libdemosaic.h"
 
+#include "progressbar.h"
 #include "io_tiff.h"
 #include "tiffio.h"
 
@@ -63,7 +66,7 @@
  *
  */
 
-void g_directional(
+void g_directional (
   float threshold,
   float *ired,
   float *igreen,
@@ -77,6 +80,11 @@ void g_directional(
   int origHeight,
   unsigned char *mask
 ) {
+  fprintf(stderr, "running directional nterpolation ...\n");
+
+  clock_t start_time = clock(), end_time;
+  double elapsed;
+
   wxCopy(ired, ored, width * height);
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
@@ -342,12 +350,18 @@ void g_directional(
       }
     }
   }
-  fprintf(stderr, "green channel interpolated\n");
 
-  // compute the bilinear on the differences of the red and blue with the already interpolated green
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to interpolate green\n", elapsed);
+
+  // Compute the bilinear on the differences of the red and blue with the
+  // already interpolated green.
+  start_time = clock();
   bilinear_red_blue(ored, ogreen, oblue, width, height, origWidth, origHeight, mask);
-
-  fprintf(stderr, "demosaic complete\n");
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to interpolate R-G and B-G\n", elapsed);
 } // g_directional();
 
 
@@ -568,8 +582,6 @@ void bilinear_red_blue(
       }
     }
   }
-  fprintf(stderr, "R-G interpolated\n");
-
 
   // Interpolate red differences making the average of possible values depending on the CFA location
   for (int x = 0; x < width; x++) {
@@ -718,7 +730,6 @@ void bilinear_red_blue(
       }
     }
   }
-  fprintf(stderr, "B-G interpolated\n");
 
   // Make back the differences
   for (int i = 0; i < width * height; i++){
@@ -772,18 +783,25 @@ void demosaic_nlmeans(
   int origHeight,
   unsigned char *mask
 ) {
-  fprintf(stderr, "running NLM interpolation...\n");
+  clock_t start_time, end_time;
+  double elapsed;
 
+  fprintf(stderr, "running NLM interpolation with bloc = %d and h = %6.3f ...\n", bloc, h);
+
+  start_time = clock();
   wxCopy(ired, ored, width * height);
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
-
   // Tabulate the function Exp(-x) for x > 0.
   int luttaille = (int) (LUTMAX * LUTPRECISION);
   float *lut = new float[luttaille];
   sFillLut(lut, luttaille);
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to initialize outputs and tabulate Exp(-x)\n", elapsed);
 
-
+  start_time = clock();
+  progressbar *pbar = progressbar_new("  ", height - 2);
   // for each pixel in the interior
   for (int y = 2; y < height - 2; y++) {
     for (int x = 2; x < width - 2; x++) {
@@ -869,10 +887,16 @@ void demosaic_nlmeans(
         else  oblue[p] = iblue[p];
       }
     }
+
+    progressbar_inc(pbar);
   }
+  progressbar_finish(pbar);
 
   delete[] lut;
-  fprintf(stderr, "NLM denoising done for h = %f\n", h);
+
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to do NLM interpolation\n", elapsed);
 }
 
 
@@ -905,7 +929,11 @@ void chromatic_median(
   int origWidth,
   int origHeight
 ) {
-  fprintf(stderr, "%d iterations of chromatic median\n", iter);
+  clock_t start_time, end_time;
+  clock_t stime_local, stime_iter;
+  double elapsed;
+
+  fprintf(stderr, "%d iterations of chromatic median ...\n", iter);
 
   int size = height * width;
 
@@ -917,20 +945,41 @@ void chromatic_median(
   float *V0 = new float[size];
 
   // For each iteration
+  start_time = clock();
   for (int i = 1; i <= iter; i++) {
+    stime_local = stime_iter = clock();
+    fprintf(stderr, "  iteration %d:\n", i);
+
     // Transform to YUV
     wxRgb2Yuv(ired, igreen, iblue, Y, U, V, width, height, origWidth, origHeight);
+    end_time = clock();
+    elapsed = double(end_time - stime_local) / CLOCKS_PER_SEC;
+    fprintf(stderr, "    %6.3f seconds to run wxRgb2Yuv()\n", elapsed);
 
     // Perform a Median on YUV component.
     // The filtered image U0 is copied back to U inside. So is V0 -> V.
+    stime_local = clock();
     wxMedian(U, U0, side, 1, width, height, origWidth, origHeight);
+    end_time = clock();
+    elapsed = double(end_time - stime_local) / CLOCKS_PER_SEC;
+    fprintf(stderr, "    %6.3f seconds to run wxMedian(U, U0)\n", elapsed);
+
+    stime_local = clock();
     wxMedian(V, V0, side, 1, width, height, origWidth, origHeight);
+    end_time = clock();
+    elapsed = double(end_time - stime_local) / CLOCKS_PER_SEC;
+    fprintf(stderr, "    %6.3f seconds to run wxMedian(V, V0)\n", elapsed);
 
     // Transform back to RGB
+    stime_local = clock();
     wxYuv2Rgb(ored, ogreen, oblue, Y, U0, V0, width, height);
+    end_time = clock();
+    elapsed = double(end_time - stime_local) / CLOCKS_PER_SEC;
+    fprintf(stderr, "    %6.3f seconds to run wxYuv2Rgb()\n", elapsed);
 
     // If projection flag is set, put back original CFA values
     if (projflag) {
+      stime_local = clock();
       for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
           int p = y * width + x;
@@ -955,11 +1004,19 @@ void chromatic_median(
           }
         }
       }
+      end_time = clock();
+      elapsed = double(end_time - stime_local) / CLOCKS_PER_SEC;
+      fprintf(stderr, "    %6.3f seconds to restore CFA values\n", elapsed);
     }
 
     wxCopy(ored, ired, size);
     wxCopy(ogreen, igreen, size);
     wxCopy(oblue, iblue, size);
+
+    end_time = clock();
+    elapsed = double(end_time - stime_iter) / CLOCKS_PER_SEC;
+    fprintf(stderr, "    ---------\n");
+    fprintf(stderr, "     %6.3f seconds\n", elapsed);
   }
 
   // delete auxiliary memory
@@ -968,7 +1025,10 @@ void chromatic_median(
   delete[] U0;
   delete[] V;
   delete[] V0;
-  fprintf(stderr, "chromatic median done\n");
+
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to run chromatic median filter\n", elapsed);
 }
 
 
@@ -1044,19 +1104,19 @@ void ssd_demosaic_chain (
   // write_image("median.tiff",                                    ired, igreen, iblue,  width, height);
 
   g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight, mask);
-  write_image("demosaicked.tiff",                    ored, ogreen, oblue,  width, height);
+//write_image("demosaicked.tiff",                    ored, ogreen, oblue,  width, height);
   //                                  ________________/      /      /
   //                                /      _________________/      /
   //                               /      /      _________________/
   //                              /      /      /
   demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight, mask);
-  write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
+//write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
   //                                            ______/      /      /
   //                                           /      ______/      /
   //                                          /      /      ______/
   //                                         /      /      /
   chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-  write_image("median-16.tiff",                                 ored, ogreen, oblue,  width, height);
+//write_image("median-16.tiff",                                 ored, ogreen, oblue,  width, height);
 
   // demosaic_nlmeans(dbloc, 4,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
   // write_image("nlmeans-4.tiff",                     ired, igreen, iblue,  width, height);

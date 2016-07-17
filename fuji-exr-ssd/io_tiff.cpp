@@ -69,7 +69,7 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
   }
 
   if (1 != TIFFGetField(fp, TIFFTAG_IMAGEDESCRIPTION, &c)) {
-    fprintf(stderr, "Warning: TIFFTAG_IMAGEDESCRIPTION could not be read\n");
+    fprintf(stderr, "  Warning: TIFFTAG_IMAGEDESCRIPTION could not be read\n");
   }
   fprintf(stderr, "  TIFF description: %s\n", c);
 

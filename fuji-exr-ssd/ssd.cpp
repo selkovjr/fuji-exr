@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <error.h>
 #include <algorithm>
+#include <ctime>
 
 #include "cfa_mask.h"
 #include "libdemosaic.h"
@@ -204,16 +205,19 @@ void run_ssd (struct argp_state* state) {
   argv[0] = argv0;
   state->next += argc - 1;
 
+  clock_t start_time, end_time;
+  double elapsed;
+
   // Processing starts here
   size_t nx0 = 0, ny0 = 0;
   size_t nx1 = 0, ny1 = 0;
   size_t nx2 = 0, ny2 = 0;
   char *description;
-  unsigned long origWidth;
-  unsigned long origHeight;
-  unsigned long width;
+  unsigned long cfaWidth;
+  unsigned long cfaHeight;
+  unsigned long width, height;
   float *frame0, *frame1, *frame2; // Bayer EXR frames or TCA-corrected R, G, B
-  float *data_in, *data_out;
+  float *data_in, *data_out, *data_rot;
   float *out_ptr, *end_ptr;
   bool landscape = false;
 
@@ -223,45 +227,64 @@ void run_ssd (struct argp_state* state) {
     printf("green input file: %s\n", args.input_file_1);
     printf("blue input file: %s\n", args.input_file_2);
 
-    if (sscanf(args.geometry, "%lux%lu", &origWidth, &origHeight) < 0) {
+    if (sscanf(args.geometry, "%lux%lu", &cfaWidth, &cfaHeight) < 0) {
       fprintf(stderr, "error parsing image geometry '%s'\n", args.geometry);
       exit(EXIT_FAILURE);
     }
-    width = origWidth + origHeight;
+    width = height = cfaWidth + cfaHeight;
 
-    /* TIFF 16-bit grayscale -> float input */
-    if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_0);
-      exit(EXIT_FAILURE);
+    start_time = clock();
+    {
+      /* TIFF 16-bit grayscale -> float input */
+      if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+        exit(EXIT_FAILURE);
+      }
+      if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_1);
+        exit(EXIT_FAILURE);
+      }
+      if (NULL == (frame2 = read_tiff_gray16_f32(args.input_file_2, &nx2, &ny2, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_2);
+        exit(EXIT_FAILURE);
+      }
+      printf("read three %ldx%ld input color planes (rotated %ldx%ld).\n", width, height, cfaWidth, cfaHeight);
     }
-    if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_1);
-      exit(EXIT_FAILURE);
-    }
-    if (NULL == (frame2 = read_tiff_gray16_f32(args.input_file_2, &nx2, &ny2, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_2);
-      exit(EXIT_FAILURE);
-    }
-    if (nx0 != nx1 or nx0 != nx2 or nx1 != nx2 or ny0 != ny1 or ny0 != ny2 or ny1 != ny2) {
-      fprintf(stderr, "Input frames must have identical size. Got %ldx%ld, %ldx%ld, %ldx%ld\n", nx0, ny0, nx1, ny1, nx2, ny2);
-      exit(EXIT_FAILURE);
-    }
-    if (nx0 != width) {
-      fprintf(stderr, "Stated image geometry (%ldx%ld) does not fit input frames (%ldx%ld)\n", origWidth, origHeight, nx0, ny0);
-      exit(EXIT_FAILURE);
-    }
-    printf("read three %ldx%ld input frames.\n", origWidth, origHeight);
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to read input\n", elapsed);
 
-    if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
-      fprintf(stderr, "allocation error. not enough memory?\n");
-      exit(EXIT_FAILURE);
-    }
+    start_time = clock();
+    {
+      if (nx0 != nx1 or nx0 != nx2 or nx1 != nx2 or ny0 != ny1 or ny0 != ny2 or ny1 != ny2) {
+        fprintf(stderr, "Input color planes must have identical size. Got %ldx%ld, %ldx%ld, %ldx%ld\n", nx0, ny0, nx1, ny1, nx2, ny2);
+        exit(EXIT_FAILURE);
+      }
+      if (nx0 != width) {
+        fprintf(stderr, "Stated image geometry (%ldx%ld) does not fit input color planes (%ldx%ld)\n", cfaWidth, cfaHeight, nx0, ny0);
+        exit(EXIT_FAILURE);
+      }
 
-    for (unsigned long i = 0; i < width * width * 3; i++) {
-      data_in[i] = 0;
+      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
+        fprintf(stderr, "allocation error. not enough memory?\n");
+        exit(EXIT_FAILURE);
+      }
+      if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
+        fprintf(stderr, "allocation error. not enough memory?\n");
+        exit(EXIT_FAILURE);
+      }
+
+      for (unsigned long i = 0; i < width * width * 3; i++) {
+        data_in[i] = 0;
+      }
     }
-    for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
-      if (origWidth > origHeight) {
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to allocate and zero-set memory\n", elapsed);
+
+    start_time = clock();
+    for (unsigned long i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
+      if (cfaWidth > cfaHeight) {
         // Landscape
         //
         // B........G
@@ -270,8 +293,8 @@ void run_ssd (struct argp_state* state) {
         // G........R
         //
         landscape = true;
-        unsigned long x = i % origWidth + (unsigned long)(i / origWidth); // points to the first pixel in a pair
-        unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
+        unsigned long x = i % cfaWidth + (unsigned long)(i / cfaWidth); // points to the first pixel in a pair
+        unsigned long y = (cfaWidth - i % cfaWidth - 1) + (i / cfaWidth);
         unsigned long rix = y * width + x;
         unsigned long gix = y * width + x + width * width;
         unsigned long bix = y * width + x + width * width * 2;
@@ -300,9 +323,9 @@ void run_ssd (struct argp_state* state) {
         //  .......
         //  B.....G
         //
-        unsigned long x0 = origHeight - 1 + i % origWidth - (unsigned long)(i / origWidth);
+        unsigned long x0 = cfaHeight - 1 + i % cfaWidth - (unsigned long)(i / cfaWidth);
         unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-        unsigned long y = i % origWidth + (unsigned long)(i / origWidth);
+        unsigned long y = i % cfaWidth + (unsigned long)(i / cfaWidth);
         data_in[y * width + x0] = frame0[i];
         data_in[y * width + x1] = frame1[i];
         data_in[y * width + x0 + width * width] = frame0[i];
@@ -311,39 +334,59 @@ void run_ssd (struct argp_state* state) {
         data_in[y * width + x1 + width * width * 2] = frame1[i];
       }
     }
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to merge input color planes\n", elapsed);
+    // write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
   } // merged CFA on input
 
   else { // Raw EXR Bayer frames
-    printf("input file 1: %s\n", args.input_file_0);
-    printf("input file 2: %s\n", args.input_file_1);
+    start_time = clock();
+    {
+      /* TIFF 16-bit grayscale -> float input */
+      fprintf(stderr, "input file 0: %s\n", args.input_file_0);
+      if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+        exit(EXIT_FAILURE);
+      }
 
-    /* TIFF 16-bit grayscale -> float input */
-    if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_0);
-      exit(EXIT_FAILURE);
+      fprintf(stderr, "input file 1: %s\n", args.input_file_1);
+      if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_1);
+        exit(EXIT_FAILURE);
+      }
     }
-    if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_1);
-      exit(EXIT_FAILURE);
-    }
-    if (nx0 != nx1 or ny0 != ny1) {
-      fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
-      exit(EXIT_FAILURE);
-    }
-    origWidth = nx0;
-    origHeight = ny0;
-    width = origWidth + origHeight;
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to read input\n", elapsed);
 
-    if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
-      fprintf(stderr, "allocation error. not enough memory?\n");
-      exit(EXIT_FAILURE);
-    }
+    start_time = clock();
+    {
+      if (nx0 != nx1 or ny0 != ny1) {
+        fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
+        exit(EXIT_FAILURE);
+      }
+      cfaWidth = nx0;
+      cfaHeight = ny0;
+      width = height = cfaWidth + cfaHeight;
+      landscape = cfaWidth > cfaHeight ? true : false;
 
-    for (unsigned long i = 0; i < width * width * 3; i++) {
-      data_in[i] = 0;
+      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
+        fprintf(stderr, "allocation error. not enough memory?\n");
+        exit(EXIT_FAILURE);
+      }
+
+      for (unsigned long i = 0; i < width * width * 3; i++) {
+        data_in[i] = 0;
+      }
     }
-    for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
-      if (origWidth > origHeight) {
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to allocate and zero-set memory\n", elapsed);
+
+    start_time = clock();
+    for (unsigned long i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
+      if (cfaWidth > cfaHeight) {
         // Landscape
         //
         // B........G
@@ -352,9 +395,9 @@ void run_ssd (struct argp_state* state) {
         // G........R
         //
         landscape = true;
-        unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
+        unsigned long x0 = i % cfaWidth + (unsigned long)(i / cfaWidth);
         unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-        unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
+        unsigned long y = (cfaWidth - i % cfaWidth - 1) + (i / cfaWidth);
         data_in[y * width + x0] = frame0[i];
         data_in[y * width + x1] = frame1[i];
         data_in[y * width + x0 + width * width] = frame0[i];
@@ -371,9 +414,9 @@ void run_ssd (struct argp_state* state) {
         //  .......
         //  B.....G
         //
-        unsigned long x0 = origHeight - 1 + i % origWidth - (unsigned long)(i / origWidth);
+        unsigned long x0 = cfaHeight - 1 + i % cfaWidth - (unsigned long)(i / cfaWidth);
         unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-        unsigned long y = i % origWidth + (unsigned long)(i / origWidth);
+        unsigned long y = i % cfaWidth + (unsigned long)(i / cfaWidth);
         data_in[y * width + x0] = frame0[i];
         data_in[y * width + x1] = frame1[i];
         data_in[y * width + x0 + width * width] = frame0[i];
@@ -382,23 +425,28 @@ void run_ssd (struct argp_state* state) {
         data_in[y * width + x1 + width * width * 2] = frame1[i];
       }
     }
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to merge input frames\n", elapsed);
+
+    //write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
   } // Raw EXR Bayer frames
 
-  fprintf(stderr, "merged input frames\n");
-
-  write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
 
   if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
     fprintf(stderr, "allocation error. not enough memory?\n");
     exit(EXIT_FAILURE);
   }
 
-  fprintf(stderr, "computing CFA mask ... ");
-  unsigned char *mask = cfa_mask(width, width, origWidth, origHeight);
-  fprintf(stderr, "done\n");
+  start_time = clock();
+  unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to compute CFA mask\n", elapsed);
 
   /* process */
-  ssd_demosaic_chain(
+  start_time = clock();
+  ssd_demosaic_chain (
     data_in,
     data_in + width * width,
     data_in + 2 * width * width,
@@ -407,10 +455,13 @@ void run_ssd (struct argp_state* state) {
     data_out + 2 * width * width,
     (int) width,
     (int) width,
-    landscape ? origWidth : origHeight,
-    landscape ? origHeight : origWidth,
+    landscape ? cfaWidth : cfaHeight,
+    landscape ? cfaHeight : cfaWidth,
     mask
   );
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to complete debayering\n", elapsed);
 
   /* limit to 0-65535 */
   out_ptr = data_out;
@@ -423,12 +474,85 @@ void run_ssd (struct argp_state* state) {
     out_ptr++;
   }
 
+  // write_tiff_rgb_f32("result.tiff", data_out, width, width);
+
+  // ---------------------------------------------------------------------------
+  // Rotate the interpolated result 45°
+  //
+  start_time = clock();
+
+  int i, row, col;
+  double step = sqrt(0.5); // Horizontal or vertical CFA step projected onto
+                           // source-plane axes
+  float r, c;              // Y- and X-coords in the source plane
+  unsigned ur, uc;         // Y- and X-coords of the nearest source pixel
+  float fr, fc;            // Y- and X-distance from (r, c) to nearest pixel
+  ushort rotWidth, rotHeight;
+
+
+  // Inflated (√2) target image co-ordinates
+  rotWidth = cfaWidth / step;
+  rotHeight = (height - cfaWidth) / step;
+
+  if (NULL == (data_rot = (float *) malloc(sizeof(float) * rotWidth * rotHeight * 3))) {
+    fprintf(stderr, "allocation error. not enough memory?\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // Row and col are co-ordinates in the inflated target image.
+  for (row = 0; row < rotHeight; row++) {
+    for (col = 0; col < rotWidth; col++) {
+      // Reverse mapping: find co-ordinates (r, c) in the rotated
+      // CFA plane whose ushort casts (ur, uc) point to the source
+      // CFA pixel.
+      ur = r = cfaWidth + (row - col) * step;
+      uc = c = (row + col) * step;
+
+      // leave margins in the source image for the stencil
+      if (ur > (unsigned)(height - 2) || uc > (unsigned)(width - 2)) continue;
+
+      fr = r - ur;
+      fc = c - uc;
+
+      for (i = 0; i < 3; i++) { // for each color plane
+
+        // David Coffin's original stencil (on an array of pixels)
+        //
+        //   pix = img + ur * iwidth + uc;
+        //   img[row * wide + col][i] =
+        //     (/* + */ pix[    0][i]*(1 - fc) + /* E  */ pix[        1][i] * fc) * (1 - fr) +
+        //     (/* S */ pix[width][i]*(1 - fc) + /* SE */ pix[width + 1][i] * fc) * fr;
+        //
+        // Same stencil reformulated for stacked color planes
+        //
+        data_rot[row * rotWidth + col + i * rotWidth * rotHeight] =
+          (1 - fr) * (
+            (1 - fc) * data_out[ur * width + uc + i * width * height]              // +
+            +
+                  fc * data_out[ur * width + uc + i * width * height + 1]          // E
+          )
+          +
+          fr * (
+            (1 - fc) * data_out[ur * width + uc + i * width * height + width]      // S
+            +
+                  fc * data_out[ur * width + uc + i * width * height + width + 1]  // SE
+          )
+          ;
+      } // each color plane
+    }
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to rotate\n", elapsed);
+
+
   fprintf(stderr, "writing output to %s\n", args.output_file);
-  write_tiff_rgb_f32(args.output_file, data_out, width, width);
+  write_tiff_rgb_f32(args.output_file, data_rot, rotWidth, rotHeight);
 
   delete[] mask;
   free(data_in);
   free(data_out);
+  free(data_rot);
 
   exit(EXIT_SUCCESS);
 
