@@ -19,8 +19,8 @@ static error_t parse_toplevel (int key, char *arg, struct argp_state *state) {
   switch (key) {
     case ARGP_KEY_ARG:
       assert( arg );
-      if(strcmp(arg, "ssd") == 0) {
-        run_ssd(state);
+      if(strcmp(arg, "sdd") == 0) {
+        run_sdd(state);
       }
       else if(strcmp(arg, "linear") == 0) {
         run_linear(state);
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     "Version: %s\n"
     "\n"
     "Command: linear  interpolate channels without debayering\n"
-    "         ssd     self-similarity-driven debayering\n"
+    "         sdd     self-similarity-driven debayering\n"
     "         db      Duran-Buades debayering\n"
     "\n",
     argp_program_version

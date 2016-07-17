@@ -43,7 +43,7 @@ struct arg_linear {
   char* output_file;
 };
 
-static char args_doc_linear[] = "bayer_0.tiff bayer_1.tiff] output.tiff";
+static char args_doc_linear[] = "bayer_0.tiff bayer_1.tiff output.tiff";
 
 static char doc_linear[] =
 "\n"

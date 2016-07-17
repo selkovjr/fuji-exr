@@ -176,7 +176,7 @@ void chromatic_median(int iter,int ,int projflag,float side,float *ired,float *i
  */
 
 
-void ssd_demosaic_chain(
+void sdd_demosaic_chain(
   float *ired,
   float *igreen,
   float *iblue,

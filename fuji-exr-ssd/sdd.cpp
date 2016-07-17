@@ -51,9 +51,9 @@
 #undef DEBUG_GREEN
 
 // --------------------
-// ## SSD command parser
+// ## SDD command parser
 
-struct arg_ssd {
+struct arg_sdd {
   bool merged_cfa;
   char* geometry;
   char* input_file_0;
@@ -62,9 +62,9 @@ struct arg_ssd {
   char* output_file;
 };
 
-static char args_doc_ssd[] = "[-m WxH r.tiff g.tiff b.tiff | bayer_0.tiff bayer_1.tiff] output.tiff";
+static char args_doc_sdd[] = "[-m WxH r.tiff g.tiff b.tiff | bayer_0.tiff bayer_1.tiff] output.tiff";
 
-static char doc_ssd[] =
+static char doc_sdd[] =
 "\n"
 "Self-similarity-driven debayering\n"
 "\n"
@@ -114,8 +114,8 @@ static char doc_ssd[] =
 "\n"
 ;
 
-static error_t parse_ssd_command(int key, char* arg, struct argp_state* state) {
-  struct arg_ssd* arguments = (struct arg_ssd*)state->input;
+static error_t parse_sdd_command(int key, char* arg, struct argp_state* state) {
+  struct arg_sdd* arguments = (struct arg_sdd*)state->input;
   char **nonopt;
 
   assert( arguments );
@@ -176,31 +176,31 @@ static error_t parse_ssd_command(int key, char* arg, struct argp_state* state) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-static struct argp_option options_ssd[] = {
+static struct argp_option options_sdd[] = {
   {"merged", 'm', 0, 0, "Input is a merged HR Bayer array" },
   { 0 }
 };
 
-static struct argp argp_ssd = {
-  options_ssd,
-  parse_ssd_command,
-  args_doc_ssd,
-  doc_ssd
+static struct argp argp_sdd = {
+  options_sdd,
+  parse_sdd_command,
+  args_doc_sdd,
+  doc_sdd
 };
 #pragma GCC diagnostic pop
 
 
-void run_ssd (struct argp_state* state) {
+void run_sdd (struct argp_state* state) {
   // command-line stuff
-  struct arg_ssd args;
+  struct arg_sdd args;
   int    argc = state->argc - state->next + 1;
   char** argv = &state->argv[state->next - 1];
   char*  argv0 =  argv[0];
-  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" ssd") + 1);
+  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" sdd") + 1);
   if (!argv[0]) argp_failure(state, 1, ENOMEM, 0);
-  sprintf(argv[0], "%s ssd", state->name);
+  sprintf(argv[0], "%s sdd", state->name);
   args.merged_cfa = false; // default value -- important!
-  argp_parse(&argp_ssd, argc, argv, ARGP_IN_ORDER, &argc, &args);
+  argp_parse(&argp_sdd, argc, argv, ARGP_IN_ORDER, &argc, &args);
   free(argv[0]);
   argv[0] = argv0;
   state->next += argc - 1;
@@ -446,7 +446,7 @@ void run_ssd (struct argp_state* state) {
 
   /* process */
   start_time = clock();
-  ssd_demosaic_chain (
+  sdd_demosaic_chain (
     data_in,
     data_in + width * width,
     data_in + 2 * width * width,
@@ -556,5 +556,5 @@ void run_ssd (struct argp_state* state) {
 
   exit(EXIT_SUCCESS);
 
-} // run_ssd()
+} // run_sdd()
 

@@ -42,7 +42,6 @@
 #define DIAG12 2.236 // sqrt(5)
 
 #define DUMP_STAGES
-#undef DEBUG_GREEN
 
 /**
  * @file   libdemosaic.cpp
@@ -59,9 +58,9 @@
  *  The green channel is interpolated directionally depending on the green first and red and blue second directional derivatives.
  *  The red and blue differences with the green channel are interpolated bilinearly.
  *
+ * @param[in]  threshold value to consider horizontal and vertical variations equivalent and average both estimates
  * @param[in]  ired, igreen, iblue  original cfa image
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  threshold value to consider horizontal and vertical variations equivalent and average both estimates
  * @param[in]  width, height size of the image
  *
  */
@@ -80,7 +79,7 @@ void g_directional (
   int origHeight,
   unsigned char *mask
 ) {
-  fprintf(stderr, "running directional nterpolation ...\n");
+  fprintf(stderr, "running directional interpolation with similarity threshold of %f\n", threshold);
 
   clock_t start_time = clock(), end_time;
   double elapsed;
@@ -89,7 +88,7 @@ void g_directional (
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
 
-  // Interpolate the green channel in the 4-pixel-wide boundary by inverse
+  // Interpolate the green channel in the 4-pixel-wide edge band by inverse
   // distance weighting.
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
@@ -99,12 +98,12 @@ void g_directional (
          mask[p] == BLUEPOSITION ||
          mask[p] == REDPOSITION
         )
-        &&
+        and
         (
-         x + y < origWidth + 3 ||                    // NW boundary
-         x >= y + origWidth - 3 ||                   // NE boundary
-         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
-         y >= x + origWidth - 4                      // SW boundary
+         x + y < origWidth + 3 ||                    // NW edge
+         x >= y + origWidth - 3 ||                   // NE edge
+         x + y >= origWidth + 2 * origHeight - 5 ||  // SE edge
+         y >= x + origWidth - 4                      // SW edge
         )
       ) {
         float avg = 0;
@@ -129,7 +128,7 @@ void g_directional (
         }
         else {
           // Each non-green pixel is surrounded by 6 green pixels,
-          // except on the boundaries.
+          // except on the fringes.
           //
           // G G G
           //   *
@@ -177,11 +176,11 @@ void g_directional (
     for (int x = 0; x < width; x++) {
       int p = y * width + x;
       if (
-        mask[p] != GREENPOSITION &&
-        x + y >= origWidth - 1 + 4 &&                   // NW boundary
-        y > x - origWidth - 1 + 4 &&                    // NE boundary
-        x + y < origWidth + 2 * origHeight - 1 - 4 &&   // SE boundary
-        x > y - origWidth + 4                           // SW boundary
+        mask[p] != GREENPOSITION and
+        x + y >= origWidth - 1 + 4 and                   // NW edge
+        y > x - origWidth - 1 + 4 and                    // NE edge
+        x + y < origWidth + 2 * origHeight - 1 - 4 and   // SE edge
+        x > y - origWidth + 4                            // SW edge
       ) {
         int
           n = (y - 1) * width + x,
@@ -258,49 +257,6 @@ void g_directional (
         gn  += fabsf(d2n);
         gne += fabsf(d2ne);
 
-#ifdef DEBUG_GREEN
-        int
-          e = p + 1,
-          w = p - 1;
-
-        if (mask[p] == BLUEPOSITION) {
-          printf("\x1b[34m--------------------------------------------------------------\x1b[0m\n");
-          printf("\x1b[34mblue\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
-          if (x % 2 == 0) {
-            printf("\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
-            printf( "      \x1b[31m%6.0f\x1b[1m\x1b[34m%6.0f\x1b[0m\x1b[34m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
-            printf("\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
-          }
-          else {
-            printf("\x1b[34m%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
-            printf( "      \x1b[34m%6.0f\x1b[1m%6.0f\x1b[0m\x1b[31m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
-            printf("\x1b[34m%6.0f\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
-          }
-        }
-        else { // red
-          printf("\x1b[31m--------------------------------------------------------------\x1b[0m\n");
-          printf("\x1b[31mred\x1b[0m, %s (%d, %d)\n", x % 2 ? "odd" : "even", x, y);
-          if (x % 2 == 0) {
-            printf("\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
-            printf( "      \x1b[34m%6.0f\x1b[1m\x1b[31m%6.0f\x1b[0m\x1b[31m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
-            printf("\x1b[31m%6.0f%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
-          }
-          else {
-            printf("\x1b[31m%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[0m\n",   ired[nw2], ired[nw2 + 1], ired[n2], ired[ne2 - 1], ired[ne2]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[nw],      ired[n],  ired[ne]);
-            printf( "      \x1b[31m%6.0f\x1b[1m%6.0f\x1b[0m\x1b[34m%6.0f\x1b[0m\n",                                    ired[w],       ired[p],  ired[e]);
-            printf( "      \x1b[32m%6.0f%6.0f%6.0f\x1b[0m\n",                                    ired[sw],      ired[s],  ired[se]);
-            printf("\x1b[31m%6.0f\x1b[34m%6.0f%6.0f\x1b[31m%6.0f%6.0f\x1b[0m\n",   ired[sw2], ired[sw2 + 1], ired[s2], ired[se2 - 1], ired[se2]);
-          }
-        }
-#endif
-
         d2n = 0;
         d2nw = 0;
         d2ne = 0;
@@ -308,14 +264,11 @@ void g_directional (
         float gmin = fminf(gnw, fminf(gn, gne));
 
         // If all differences are similar, compute an isotropic average.
-        if ( 1 || (
-          fabsf(gnw - gmin) < threshold &&
-          fabsf(gn - gmin) < threshold &&
+        if (
+          fabsf(gnw - gmin) < threshold and
+          fabsf(gn - gmin) < threshold and
           fabsf(gne - gmin) < threshold
-        )) {
-#ifdef DEBUG_GREEN
-          printf(  "grad # (\\ %5.0f, | %5.0f, / %5.0f)\n", gnw, gn, gne);
-#endif
+        ) {
           ogreen[p] =
             (
              ogreen[nw] / DIAG + ogreen[n] + ogreen[ne] / DIAG +
@@ -325,31 +278,19 @@ void g_directional (
         }
         else if (gmin == gnw) {
           // NW average
-#ifdef DEBUG_GREEN
-          printf(  "grad \\ (\\ %5.0f, | %5.0f, / %5.0f)\n", gnw, gn, gne);
-#endif
           ogreen[p] = (ogreen[nw] + ogreen[se]) / 2.0 + d2nw;
         }
         else if (gmin == gn) {
           // N
-#ifdef DEBUG_GREEN
-          printf(  "grad | (\\ %5.0f, | %5.0f, / %5.0f)\n", gnw, gn, gne);
-#endif
           ogreen[p] = (ogreen[n] + ogreen[s]) / 2.0 + d2n;
         }
         else if (gmin == gne) {
           // NE
-#ifdef DEBUG_GREEN
-          printf(  "grad / (\\ %5.0f, | %5.0f, / %5.0f)\n", gnw, gn, gne);
-#endif
           ogreen[p] = (ogreen[ne] + ogreen[sw]) / 2.0 + d2ne;
         }
-#ifdef DEBUG_GREEN
-        printf("    \x1b[32mavg: %5.0f\x1b[0m\n", ogreen[p]);
-#endif
-      }
-    }
-  }
+      } // if not green
+    } // directional green, columns
+  } // directional green, rows
 
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
@@ -398,7 +339,7 @@ void bilinear_red_blue(
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       int p = y * width + x;
-      if (mask[p] != BLUEPOSITION && mask[p] != BLANK) {
+      if (mask[p] != BLUEPOSITION and mask[p] != BLANK) {
         int
           n = (y - 1) * width + x,
           s = (y + 1) * width + x,
@@ -413,7 +354,7 @@ void bilinear_red_blue(
           n2 = (y - 2) * width + x,
           s2 = (y + 2) * width + x;
 
-        if (x + y == origWidth - 1) {  // NW boundary
+        if (x + y == origWidth - 1) {  // NW edge
           if (mask[p] == GREENPOSITION) {
             // IDW-average the closest blue pixels.
             //
@@ -427,7 +368,7 @@ void bilinear_red_blue(
             oblue[e] = (oblue[sw]/DIAG12 + oblue[s]/DIAG + oblue[ne]      + oblue[ne + 1]/DIAG + oblue[se + 2]/DIAG12) / (1/DIAG12 + 1/DIAG + 1 + 1/DIAG + 1/DIAG12);
           }
         }
-        else if (y == x - origWidth) {  // NE boundary
+        else if (y == x - origWidth) {  // NE edge
           if (mask[p] == GREENPOSITION) {
             // IDW-average the underlying red block to the inner green pixel
             // (w) and copy it to the outer green pixel (*). All other blue
@@ -457,7 +398,7 @@ void bilinear_red_blue(
             oblue[w] = (oblue[s2 - 1]/2 + oblue[s2]/DIAG12 + oblue[w2]) / (1.5 + 1 / DIAG12);
           }
         }
-        else if (y == x + origWidth - 1) {  // SW boundary
+        else if (y == x + origWidth - 1) {  // SW edge
           if (mask[p] == GREENPOSITION) {
             // IDW-average the closest blue pixels.
             //
@@ -485,7 +426,7 @@ void bilinear_red_blue(
           //   oblue[e] = (oblue[n2 - 1] / DIAG12 + oblue[n2] / 2 + oblue[e]) / (1.5 + 1 / DIAG12);
           // }
         }
-        else if (x + y == origWidth + 2 * origHeight - 2) {  // SE boundary
+        else if (x + y == origWidth + 2 * origHeight - 2) {  // SE edge
           if (mask[p] == GREENPOSITION) {
             // IDW-average the overlying blue block to the inner green pixel
             // (w) and copy it to the outer green pixel (*). All other blue
@@ -515,12 +456,12 @@ void bilinear_red_blue(
             oblue[w] = oblue[p];
           }
         }
-        else if ( // Green interior and east boundaries
-          mask[p] == GREENPOSITION &&
-          x + y >= origWidth - 1 + 2 &&  // exclude NW boundary (even though it should have filled right)
-          x > y - origWidth + 2 &&       // exclude SW boundary (even though it should have filled right)
-          y > x - origWidth - 1 + 2 &&                // exclude NE boundary
-          x + y < origWidth + 2 * origHeight - 1 - 2  // exclude SE boundary
+        else if ( // Green interior and east edge bands
+          mask[p] == GREENPOSITION and
+          x + y >= origWidth - 1 + 2 and               // exclude NW edge band
+          x > y - origWidth + 2 and                    // exclude SW edge band
+          y > x - origWidth - 1 + 2 and                // exclude NE edge band
+          x + y < origWidth + 2 * origHeight - 1 - 2   // exclude SE edge band
         ) {
           // The interpolation pattern for green pixels depends on their horizontal position.
           if ((x + y + 3) % 4 == 0) {
@@ -569,7 +510,7 @@ void bilinear_red_blue(
           }
         }
 
-        else if ( // Red interior (boundaries have already been excluded above)
+        else if ( // Red interior (edge bands have already been excluded above)
           mask[p] == REDPOSITION
         ) {
           if (x % 2 == 0) {
@@ -587,7 +528,7 @@ void bilinear_red_blue(
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       int p = y * width + x;
-      if (mask[p] != REDPOSITION && mask[p] != BLANK) {
+      if (mask[p] != REDPOSITION and mask[p] != BLANK) {
         int
           n = (y - 1) * width + x,
           s = (y + 1) * width + x,
@@ -603,7 +544,7 @@ void bilinear_red_blue(
           s2 = (y + 2) * width + x;
 
 
-        if (x + y == origWidth - 1) {  // NW boundary
+        if (x + y == origWidth - 1) {  // NW edge
           if (mask[p] == GREENPOSITION) {
             // IDW-average the underlying red block to the inner green pixel
             // (G) and copy it to the outer green pixel (*). All other red
@@ -633,7 +574,7 @@ void bilinear_red_blue(
             ored[p] = (ored[s2] / 2 + ored[s2 + 1] / DIAG12 + ored[e2] / 2) / (1 + 1 / DIAG12);
           }
         }
-        else if (x == y - origWidth + 1) { // SW boundary
+        else if (x == y - origWidth + 1) { // SW edge
           if (mask[p] == GREENPOSITION) {
             // IDW-average the overlying red block to the inner green pixel
             // (e) and copy it to the outer green pixel (*). All other red
@@ -663,10 +604,10 @@ void bilinear_red_blue(
             ored[e] = (ored[n2] / DIAG12 + ored[n2 + 1] / 2 + ored[e2]) / (1.5 + 1 / DIAG12);
           }
         }
-        else if ( // Green interior and east boundaries
-          mask[p] == GREENPOSITION &&
-          x + y >= origWidth + 1 &&  // exclude NW boundary (it has been filled)
-          x > y - origWidth + 2      // exclude SW boundary (it has been filled)
+        else if ( // Green interior and east edges
+          mask[p] == GREENPOSITION and
+          x + y >= origWidth + 1 and  // exclude NW edge (it has been filled)
+          x > y - origWidth + 2       // exclude SW edge (it has been filled)
         ) {
           // The interpolation pattern for green pixels depends on their horizontal position.
           if ((x + y + 1) % 4 == 0) {
@@ -715,10 +656,10 @@ void bilinear_red_blue(
           }
         }
 
-        else if ( // Blue interior (blue does not occur on the west boundaries)
-          mask[p] == BLUEPOSITION &&
-          x + y >= origWidth + 2 and  // exclude NW boundary (even though it should have filled right)
-          x > y - origWidth + 2       // exclude SW boundary (even though it should have filled right)
+        else if ( // Blue interior (blue does not occur on the west side)
+          mask[p] == BLUEPOSITION and
+          x + y >= origWidth + 2 and  // exclude NW edge
+          x > y - origWidth + 2       // exclude SW edge
         ) {
           if (x % 2 == 0) {
             ored[p] = (ored[n2] / 2 + ored[e2] / 2 + ored[s2] / 2 + ored[w]) / 2.5;
@@ -761,7 +702,8 @@ void bilinear_red_blue(
  *
  * @param[in]  ired, igreen, iblue  initial demosaicked image
  * @param[out] ored, ogreen, oblue  demosaicked output
- * @param[in]  bloc search block of size (2+bloc+1) x (2*bloc+1)
+ * @param[in]  radius search block of size (2·radius + 1)²
+
  * @param[in]  h kernel bandwidth
  * @param[in]  width, height size of the image
  *
@@ -769,7 +711,7 @@ void bilinear_red_blue(
 
 
 void demosaic_nlmeans(
-  int bloc,
+  int radius,
   float h,
   float *ired,
   float *igreen,
@@ -786,7 +728,7 @@ void demosaic_nlmeans(
   clock_t start_time, end_time;
   double elapsed;
 
-  fprintf(stderr, "running NLM interpolation with bloc = %d and h = %6.3f ...\n", bloc, h);
+  fprintf(stderr, "running NLM interpolation with a %dx%d search block and h = %6.3f ...\n", 2 *radius + 1, 2 * radius + 1, h);
 
   start_time = clock();
   wxCopy(ired, ored, width * height);
@@ -809,18 +751,18 @@ void demosaic_nlmeans(
       if (
         mask[p] != BLANK and
         (
-         x + y >= origWidth + 3 + bloc - 1 and                  // NW boundary
-         x < y + origWidth - 3 - bloc + 1 and                   // NE boundary
-         x + y < origWidth + 2 * origHeight - 5 - bloc + 1 and  // SE boundary
-         y < x + origWidth - 4 - bloc + 1                       // SW boundary
+         x + y >= origWidth + 3 + radius - 1 and                  // NW edge
+         x < y + origWidth - 3 - radius + 1 and                   // NE edge
+         x + y < origWidth + 2 * origHeight - 5 - radius + 1 and  // SE edge
+         y < x + origWidth - 4 - radius + 1                       // SW edge
         )
       ) {
         // Learning zone depending on window size
-        int imin = MAX(x - bloc, 1);
-        int jmin = MAX(y - bloc, 1);
+        int imin = MAX(x - radius, 1);
+        int jmin = MAX(y - radius, 1);
 
-        int imax = MIN(x + bloc, width - 2);
-        int jmax = MIN(y + bloc, height - 2);
+        int imax = MIN(x + radius, width - 2);
+        int jmax = MIN(y + radius, height - 2);
 
         // auxiliary variables for computing average
         float red = 0.0;
@@ -877,13 +819,13 @@ void demosaic_nlmeans(
 
 
         // Set value to current pixel
-        if (mask[p] != GREENPOSITION && gweight > fTiny) ogreen[p] = green / gweight;
+        if (mask[p] != GREENPOSITION and gweight > fTiny) ogreen[p] = green / gweight;
         else ogreen[p] = igreen[p];
 
-        if ( mask[p] != REDPOSITION && rweight > fTiny) ored[p] = red / rweight;
+        if ( mask[p] != REDPOSITION and rweight > fTiny) ored[p] = red / rweight;
         else ored[p] = ired[p];
 
-        if (mask[p] != BLUEPOSITION && bweight > fTiny) oblue[p] = blue / bweight;
+        if (mask[p] != BLUEPOSITION and bweight > fTiny) oblue[p] = blue / bweight;
         else  oblue[p] = iblue[p];
       }
     }
@@ -984,10 +926,10 @@ void chromatic_median(
         for (int x = 0; x < width; x++) {
           int p = y * width + x;
           if (
-              x + y >= origWidth - 1 &&                   // NW boundary
-              y > x - origWidth - 1 &&                    // NE boundary
-              x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
-              x > y - origWidth                           // SW boundary
+              x + y >= origWidth - 1 and                   // NW edge
+              y > x - origWidth - 1 and                    // NE edge
+              x + y < origWidth + 2 * origHeight - 1 and   // SE edge
+              x > y - origWidth                            // SW edge
              ) {
             if (y % 2 == 0) {
               ogreen[p] = igreen[p];
@@ -1050,7 +992,7 @@ void chromatic_median(
  *
  * Output <- u;
  *
- * Sketch of the SSD algorithm:
+ * Sketch of the SDD algorithm:
  *
  *  * For u the red, green or blue channel, let Ωu be the domain of u.
  *
@@ -1058,7 +1000,7 @@ void chromatic_median(
  *  on an initial color estimate obtained by a standard demosaicking algorithm.
  *
  *  * To reduce artefacts caused by the initial estimate, a coarse-to-fine
- *  strategy is used by iteratively applying SSD-NLM with a decreasing
+ *  strategy is used by iteratively applying SDD-NLM with a decreasing
  *  sequence of h together with a color regularization step (median filtering
  *  on chromaticity components).
  *
@@ -1069,7 +1011,7 @@ void chromatic_median(
  */
 
 
-void ssd_demosaic_chain (
+void sdd_demosaic_chain (
   float *ired,
   float *igreen,
   float *iblue,
@@ -1087,46 +1029,47 @@ void ssd_demosaic_chain (
 
   int dbloc = 7;
   float side = 1.5;
-  int iter = 2;
+  int iter = 1;
   int projflag = 1;
-  float threshold = 2.0;
-
-  // g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-  // write_image("demosaicked.tiff",                    ored, ogreen, oblue,  width, height);
-  // //                                          ______/      /      /
-  // //                                        /      _______/      /
-  // //                                       /      /      _______/
-  // //                                      /      /      /
-  // chromatic_median(iter, projflag, side,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
-  // //                                                              \    |    /
-  // //                                                               \   |   /
-  // //                                                                 output
-  // write_image("median.tiff",                                    ired, igreen, iblue,  width, height);
+  float threshold = 200; // presumably the original code was used with 8-bit images
 
   g_directional(threshold,     ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight, mask);
-//write_image("demosaicked.tiff",                    ored, ogreen, oblue,  width, height);
+  write_image("debayer.tiff",                        ored, ogreen, oblue,  width, height);
   //                                  ________________/      /      /
   //                                /      _________________/      /
   //                               /      /      _________________/
   //                              /      /      /
   demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight, mask);
-//write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
+  write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
   //                                            ______/      /      /
   //                                           /      ______/      /
   //                                          /      /      ______/
   //                                         /      /      /
   chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-//write_image("median-16.tiff",                                 ored, ogreen, oblue,  width, height);
-
-  // demosaic_nlmeans(dbloc, 4,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
-  // write_image("nlmeans-4.tiff",                     ired, igreen, iblue,  width, height);
-  // chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-  // write_image("median-4.tiff",                                  ored, ogreen, oblue,  width, height);
-
-  // demosaic_nlmeans(dbloc, 1,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight);
-  // write_image("nlmeans-1.tiff",                     ired, igreen, iblue,  width, height);
-  // chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-  // write_image("median-1.tiff",                                  ored, ogreen, oblue,  width, height);
+  write_image("median-16.tiff",                                 ored, ogreen, oblue,  width, height);
+  //                                  ________________/      /      /
+  //                                /      _________________/      /
+  //                               /      /      _________________/
+  //                              /      /      /
+  demosaic_nlmeans(dbloc, 4,   ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight, mask);
+  write_image("nlmeans-4.tiff",                      ired, igreen, iblue,  width, height);
+  //                                            ______/      /      /
+  //                                           /      ______/      /
+  //                                          /      /      ______/
+  //                                         /      /      /
+  chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  write_image("median-4.tiff",                                  ored, ogreen, oblue,  width, height);
+  //                                  ________________/      /      /
+  //                                /      _________________/      /
+  //                               /      /      _________________/
+  //                              /      /      /
+  demosaic_nlmeans(dbloc, 1,   ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight, mask);
+  write_image("nlmeans-1.tiff",                      ired, igreen, iblue,  width, height);
+  //                                            ______/      /      /
+  //                                           /      ______/      /
+  //                                          /      /      ______/
+  //                                         /      /      /
+  chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
+  write_image("median-1.tiff",                                  ored, ogreen, oblue,  width, height);
 }
-
 
