@@ -1,17 +1,17 @@
 #include <argp.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <error.h>
 #include <algorithm>
+#include <omp.h>
+#include <ctime>
 
-#include "subcommands.h"
 #include "cfa_mask.h"
 #include "io_tiff.h"
 #include "tiffio.h"
 #include "libAuxiliary.h"
-
 
 #define DIAG 1.4142136
 #define DIAG12 2.236 // sqrt(5)
@@ -19,51 +19,287 @@
 #define DUMP_STAGES
 #undef DEBUG_GREEN
 
-const char *argp_program_version = VERSION " " __DATE__;
+void interpolate (
+  float *ired,
+  float *igreen,
+  float *iblue,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height,
+  int cfaWidth,
+  int cfaHeight,
+  unsigned char *mask
+);
 
-//-------------------------------------------------------------------
-// Command-line option parsing.
-// Example at https://gist.github.com/sam-github/57f49711cd9073b35d22
-//
+// --------------------
+// ## linear command parser
 
-// ## Top-level parser
-static char doc_toplevel[1000];
+struct arg_linear {
+  char* geometry;
+  char* input_file_0;
+  char* input_file_1;
+  char* output_file;
+};
 
-static error_t parse_toplevel (int key, char *arg, struct argp_state *state) {
-  switch (key) {
-    case ARGP_KEY_ARG:
-      assert( arg );
-      if(strcmp(arg, "ssd") == 0) {
-        run_ssd(state);
-      }
-      else if(strcmp(arg, "linear") == 0) {
-        run_linear(state);
-      }
-      else {
-        argp_error(state, "%s is not a valid command", arg);
-      }
+static char args_doc_linear[] = "bayer_0.tiff bayer_1.tiff] output.tiff";
+
+static char doc_linear[] =
+"\n"
+"Merge and interpolate the two halves of the EXR-HR Bayer array \n"
+"\n"
+"Input:\n"
+"  Two raw Bayer frames extracted with dcraw from\n"
+"  an HR (high-resolution) EXR image:\n"
+"\n"
+"    dcraw -v -w -d -s all -4 -T <source.RAF>\n"
+"\n"
+"Output:\n"
+"  Interpolated TIFF image"
+"\n"
+"\v"
+"The algorithm proceeds as follows:\n"
+"\n"
+"  1. The two input frames are rotated 45° CCW and merged\n"
+"     (interleaved) to reconstruct the high-resoluttion\n"
+"     EXR matrix.\n"
+"\n"
+"  2. A simple linear interpolation with symmetrical stencils\n"
+"     is used to fill the missing pixels in each color plane.\n"
+"\n"
+;
+
+static error_t parse_linear_command(int key, char* arg, struct argp_state* state) {
+  struct arg_linear* arguments = (struct arg_linear*)state->input;
+  char **nonopt;
+
+  assert( arguments );
+
+  switch(key) {
+    case ARGP_KEY_NO_ARGS:
+      argp_usage (state);
+
+    case ARGP_KEY_ARG: // non-option argument
+      // Here we know that state->arg_num == 0, since we force option parsing
+      // to end before any non-option arguments can be seen
+      nonopt = &state->argv[state->next];
+      state->next = state->argc; // we're done
+
+      arguments->input_file_0 = arg;
+      arguments->input_file_1 = nonopt[0];
+      arguments->output_file = nonopt[1];
       break;
 
     case ARGP_KEY_END:
-      if (state->arg_num < 2)
-        argp_usage (state);
+      if (state->arg_num < 3) {
+        argp_error(state, "Not enough arguments");
+      }
+      if (state->arg_num > 3) {
+        argp_error(state, "Extra arguments");
+      }
       break;
 
     default:
       return ARGP_ERR_UNKNOWN;
   }
+
   return 0;
 }
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-static struct argp argp_toplevel = {
+static struct argp argp_linear = {
   0, // no options
-  parse_toplevel,
-  "<COMMAND> <ARGS>",
-  doc_toplevel
+  parse_linear_command,
+  args_doc_linear,
+  doc_linear
 };
 #pragma GCC diagnostic pop
+
+// --------------------
+
+void run_linear (struct argp_state* state) {
+  // command-line stuff
+  struct arg_linear args;
+  int    argc = state->argc - state->next + 1;
+  char** argv = &state->argv[state->next - 1];
+  char*  argv0 =  argv[0];
+  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" linear") + 1);
+  if (!argv[0]) argp_failure(state, 1, ENOMEM, 0);
+  sprintf(argv[0], "%s linear", state->name);
+  argp_parse(&argp_linear, argc, argv, ARGP_IN_ORDER, &argc, &args);
+  free(argv[0]);
+  argv[0] = argv0;
+  state->next += argc - 1;
+
+  clock_t start_time, end_time;
+  double elapsed;
+
+  // Processing starts here
+  size_t nx0 = 0, ny0 = 0;
+  size_t nx1 = 0, ny1 = 0;
+  char *description;
+  unsigned long cfaWidth;
+  unsigned long cfaHeight;
+  unsigned long width;
+  float *frame0, *frame1;
+  float *data_in, *data_out;
+  float *out_ptr, *end_ptr;
+  bool landscape;
+  unsigned long i, x0, x1, y;
+
+  /* TIFF 16-bit grayscale -> float input */
+  start_time = clock();
+  {
+    fprintf(stderr, "input file 0: %s\n", args.input_file_0);
+    if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
+      fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+      exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "input file 1: %s\n", args.input_file_1);
+    if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
+      fprintf(stderr, "error while reading from %s\n", args.input_file_1);
+      exit(EXIT_FAILURE);
+    }
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to read input\n", elapsed);
+
+  start_time = clock();
+  {
+    if (nx0 != nx1 or ny0 != ny1) {
+      fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
+      exit(EXIT_FAILURE);
+    }
+
+    cfaWidth = nx0;
+    cfaHeight = ny0;
+    width = cfaWidth + cfaHeight;
+    landscape = cfaWidth > cfaHeight ? true : false;
+
+    if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
+      fprintf(stderr, "allocation error. not enough memory?\n");
+      exit(EXIT_FAILURE);
+    }
+    if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
+      fprintf(stderr, "allocation error. not enough memory?\n");
+      exit(EXIT_FAILURE);
+    }
+
+    for (i = 0; i < width * width * 3; i++) {
+      data_in[i] = 0;
+    }
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to allocate and zero-set memory\n", elapsed);
+
+  start_time = clock();
+  for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
+    if (cfaWidth > cfaHeight) {
+      // Landscape
+      //
+      // B........G
+      // ..........
+      // ..........
+      // G........R
+      //
+      x0 = i % cfaWidth + (unsigned long)(i / cfaWidth);
+      x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+      y = (cfaWidth - i % cfaWidth - 1) + (i / cfaWidth);
+      data_in[y * width + x0] = frame0[i];
+      data_in[y * width + x1] = frame1[i];
+      data_in[y * width + x0 + width * width] = frame0[i];
+      data_in[y * width + x1 + width * width] = frame1[i];
+      data_in[y * width + x0 + width * width * 2] = frame0[i];
+      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    }
+    else {
+      // Portrait 270° CW
+      //
+      //  G.....R
+      //  .......
+      //  .......
+      //  .......
+      //  B.....G
+      //
+      x0 = cfaHeight - 1 + i % cfaWidth - (unsigned long)(i / cfaWidth);
+      x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+      y = i % cfaWidth + (unsigned long)(i / cfaWidth);
+      data_in[y * width + x0] = frame0[i];
+      data_in[y * width + x1] = frame1[i];
+      data_in[y * width + x0 + width * width] = frame0[i];
+      data_in[y * width + x1 + width * width] = frame1[i];
+      data_in[y * width + x0 + width * width * 2] = frame0[i];
+      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    }
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to merge input frames\n", elapsed);
+
+  // write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
+
+  start_time = clock();
+  unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to compute CFA mask\n", elapsed);
+
+  start_time = clock();
+  interpolate (
+    data_in,
+    data_in + width * width,
+    data_in + 2 * width * width,
+    data_out,
+    data_out + width * width,
+    data_out + 2 * width * width,
+    (int) width,
+    (int) width,
+    landscape ? cfaWidth : cfaHeight,
+    landscape ? cfaHeight : cfaWidth,
+    mask
+  );
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to interpolate\n", elapsed);
+
+  /* limit to 0-65535 */
+  start_time = clock();
+  {
+    out_ptr = data_out;
+    end_ptr = out_ptr + 3 * width * width;
+    while (out_ptr < end_ptr) {
+      if ( 0 > *out_ptr)
+        *out_ptr = 0;
+      if ( 65535 < *out_ptr)
+        *out_ptr = 65535;
+      out_ptr++;
+    }
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to clip values\n", elapsed);
+
+  fprintf(stderr, "writing output to %s\n", args.output_file);
+  start_time = clock();
+  {
+    write_tiff_rgb_f32(args.output_file, data_out, width, width);
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  fprintf(stderr, "%6.3f seconds to write\n", elapsed);
+
+  delete[] mask;
+  free(data_in);
+  free(data_out);
+
+  exit(EXIT_SUCCESS);
+
+} // run_linear()
 
 
 void interpolate (
@@ -75,48 +311,21 @@ void interpolate (
   float *oblue,
   int width,
   int height,
-  int origWidth,
-  int origHeight
+  int cfaWidth,
+  int cfaHeight,
+  unsigned char *mask
 ) {
+  long x, y, p;
+
   wxCopy(ired, ored, width * height);
   wxCopy(igreen, ogreen, width * height);
   wxCopy(iblue, oblue, width * height);
 
-  // CFA Mask indicating which color each sensor pixel has
-  unsigned char* mask = (unsigned char *) malloc(width * height * sizeof(unsigned char));
-
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int p = y * width + x;
-      if (
-        x + y >= origWidth - 1 &&                   // NW boundary
-        y > x - origWidth - 1 &&                    // NE boundary
-        x + y < origWidth + 2 * origHeight - 1 &&   // SE boundary
-        x > y - origWidth                           // SW boundary
-      ) {
-        if (y % 2 == 0) {
-          mask[p] = GREENPOSITION;
-        }
-        else {
-          if ((x + y - 1) % 4 == 0 || (x + y - 1) % 4 == 1) {
-            mask[p] = REDPOSITION;
-          }
-          else {
-            mask[p] = BLUEPOSITION;
-          }
-        }
-      }
-      else {
-        mask[p] = BLANK;
-      }
-    }
-  }
-
   // Interpolate the green channel in the 4-pixel-wide boundary by inverse
   // distance weighting.
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      int p = y * width + x;
+  for (x = 0; x < width; x++) {
+    for (y = 0; y < height; y++) {
+      p = y * width + x;
       if (
         (
          mask[p] == BLUEPOSITION ||
@@ -124,10 +333,10 @@ void interpolate (
         )
         &&
         (
-         x + y < origWidth + 3 ||                    // NW boundary
-         x >= y + origWidth - 3 ||                   // NE boundary
-         x + y >= origWidth + 2 * origHeight - 5 ||  // SE boundary
-         y >= x + origWidth - 4                      // SW boundary
+         x + y < cfaWidth + 3 ||                    // NW boundary
+         x >= y + cfaWidth - 3 ||                   // NE boundary
+         x + y >= cfaWidth + 2 * cfaHeight - 5 ||  // SE boundary
+         y >= x + cfaWidth - 4                      // SW boundary
         )
       ) {
         float avg = 0;
@@ -192,19 +401,19 @@ void interpolate (
   // -------------------------------------------------------
   // Do simple linear interpolation for green inside the image
   // -------------------------------------------------------
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int p = y * width + x;
+  for (y = 0; y < height; y++) {
+    for (x = 0; x < width; x++) {
+      p = y * width + x;
       if (
-        mask[p] != GREENPOSITION &&
-        x + y >= origWidth - 1 + 4 &&                   // NW boundary
-        y > x - origWidth - 1 + 4 &&                    // NE boundary
-        x + y < origWidth + 2 * origHeight - 1 - 4 &&   // SE boundary
-        x > y - origWidth + 4                           // SW boundary
-      ) {
+          mask[p] != GREENPOSITION &&
+          x + y >= cfaWidth - 1 + 4 &&                   // NW boundary
+          y > x - cfaWidth - 1 + 4 &&                    // NE boundary
+          x + y < cfaWidth + 2 * cfaHeight - 1 - 4 &&   // SE boundary
+          x > y - cfaWidth + 4                           // SW boundary
+         ) {
         int
           n = (y - 1) * width + x,
-          s = (y + 1) * width + x;
+            s = (y + 1) * width + x;
 
         ogreen[p] = (ogreen[n] + ogreen[s]) / 2.0;
       }
@@ -215,9 +424,9 @@ void interpolate (
 
   // Interpolate blue making the average of possible values in
   // location-dependent patterns (different for G and R locations)
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      int p = y * width + x;
+  for (x = 0; x < width; x++) {
+    for (y = 0; y < height; y++) {
+      p = y * width + x;
       if (mask[p] != BLUEPOSITION && mask[p] != BLANK) {
         int
           n = (y - 1) * width + x,
@@ -234,7 +443,7 @@ void interpolate (
           s2 = (y + 2) * width + x;
 
         // First interpolate boundary values
-        if (x + y == origWidth - 1) {  // NW boundary
+        if (x + y == cfaWidth - 1) {  // NW boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average of the closest blue pixels.
             //
@@ -248,7 +457,7 @@ void interpolate (
             oblue[e] = (oblue[sw]/DIAG12 + oblue[s]/DIAG + oblue[ne]      + oblue[ne + 1]/DIAG + oblue[se + 2]/DIAG12) / (1/DIAG12 + 1/DIAG + 1 + 1/DIAG + 1/DIAG12);
           }
         }
-        else if (y == x - origWidth) {  // NE boundary
+        else if (y == x - cfaWidth) {  // NE boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average the underlying red block to the inner green pixel
             // (w) and copy it to the outer green pixel (*). All other blue
@@ -278,7 +487,7 @@ void interpolate (
             oblue[w] = (oblue[s2 - 1]/2 + oblue[s2]/DIAG12 + oblue[w2]) / (1.5 + 1 / DIAG12);
           }
         }
-        else if (y == x + origWidth - 1) {  // SW boundary
+        else if (y == x + cfaWidth - 1) {  // SW boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average of the closest blue pixels.
             //
@@ -292,7 +501,7 @@ void interpolate (
             oblue[e] = (oblue[nw]/DIAG12 + oblue[n]/DIAG + oblue[se]      + oblue[se + 1]/DIAG + oblue[ne + 2]/DIAG12) / (1/DIAG12 + 1/DIAG + 1 + 1/DIAG + 1/DIAG12);
           }
         }
-        else if (x + y == origWidth + 2 * origHeight - 2) {  // SE boundary
+        else if (x + y == cfaWidth + 2 * cfaHeight - 2) {  // SE boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average the overlying blue block to the inner green pixel
             // (w) and copy it to the outer green pixel (*). All other blue
@@ -326,10 +535,10 @@ void interpolate (
         // Now interpolate inside the image
         else if ( // Green interior and east boundaries
           mask[p] == GREENPOSITION &&
-          x + y >= origWidth - 1 + 2 &&  // exclude NW boundary (even though it should have filled right)
-          x > y - origWidth + 2 &&       // exclude SW boundary (even though it should have filled right)
-          y > x - origWidth - 1 + 2 &&                // exclude NE boundary
-          x + y < origWidth + 2 * origHeight - 1 - 2  // exclude SE boundary
+          x + y >= cfaWidth - 1 + 2 &&  // exclude NW boundary (even though it should have filled right)
+          x > y - cfaWidth + 2 &&       // exclude SW boundary (even though it should have filled right)
+          y > x - cfaWidth - 1 + 2 &&                // exclude NE boundary
+          x + y < cfaWidth + 2 * cfaHeight - 1 - 2  // exclude SE boundary
         ) {
           // The interpolation pattern for green pixels depends on their horizontal position.
           if ((x + y + 3) % 4 == 0) {
@@ -396,9 +605,9 @@ void interpolate (
 
   // Interpolate red making the average of possible values in
   // location-dependent patterns (different for G and B locations)
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      int p = y * width + x;
+  for (x = 0; x < width; x++) {
+    for (y = 0; y < height; y++) {
+      p = y * width + x;
       if (mask[p] != REDPOSITION && mask[p] != BLANK) {
         int
           // n = (y - 1) * width + x,
@@ -416,7 +625,7 @@ void interpolate (
 
 
         // Do the boundaries
-        if (x + y == origWidth - 1) {  // NW boundary
+        if (x + y == cfaWidth - 1) {  // NW boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average the underlying red block to the inner green pixel
             // (G) and copy it to the outer green pixel (*). All other red
@@ -446,7 +655,7 @@ void interpolate (
             ored[p] = (ored[s2] / 2 + ored[s2 + 1] / DIAG12 + ored[e2] / 2) / (1 + 1 / DIAG12);
           }
         }
-        else if (x == y - origWidth + 1) { // SW boundary
+        else if (x == y - cfaWidth + 1) { // SW boundary
           if (mask[p] == GREENPOSITION) {
             // IDW-average the overlying red block to the inner green pixel
             // (e) and copy it to the outer green pixel (*). All other red
@@ -480,8 +689,8 @@ void interpolate (
         // Do the interior
         else if ( // Green interior and east boundaries
           mask[p] == GREENPOSITION &&
-          x + y >= origWidth + 1 &&  // exclude NW boundary (it has been filled)
-          x > y - origWidth + 2      // exclude SW boundary (it has been filled)
+          x + y >= cfaWidth + 1 &&  // exclude NW boundary (it has been filled)
+          x > y - cfaWidth + 2      // exclude SW boundary (it has been filled)
         ) {
           // The interpolation pattern for green pixels depends on their horizontal position.
           if ((x + y + 1) % 4 == 0) {
@@ -532,8 +741,8 @@ void interpolate (
 
         else if ( // Blue interior (blue does not occur on the west boundaries)
           mask[p] == BLUEPOSITION &&
-          x + y >= origWidth + 2 and  // exclude NW boundary (even though it should have filled right)
-          x > y - origWidth + 2       // exclude SW boundary (even though it should have filled right)
+          x + y >= cfaWidth + 2 and  // exclude NW boundary (even though it should have filled right)
+          x > y - cfaWidth + 2       // exclude SW boundary (even though it should have filled right)
         ) {
           if (x % 2 == 0) {
             ored[p] = (ored[n2] / 2 + ored[e2] / 2 + ored[s2] / 2 + ored[w]) / 2.5;
@@ -547,158 +756,4 @@ void interpolate (
   }
   fprintf(stderr, "red interpolated\n");
 
-  free(mask);
 } // interpolate();
-
-
-
-int main(int argc, char **argv) {
-  size_t nx0 = 0, ny0 = 0;
-  size_t nx1 = 0, ny1 = 0;
-  char *description;
-  unsigned long origWidth;
-  unsigned long origHeight;
-  unsigned long width;
-  float *frame0, *frame1;
-  float *data_in, *data_out;
-  float *out_ptr, *end_ptr;
-  bool landscape = false;
-
-  sprintf(
-    doc_toplevel,
-    "\n"
-    "Utilities for processing Fuji EXR sensor data\n"
-    "Version: %s\n"
-    "\n"
-    "Command: linear  interpolate channels without debayering\n"
-    "         ssd     self-similarity-driven debayering\n"
-    "         db      Duran-Buades debayering\n"
-    "\n",
-    argp_program_version
-  );
-
-  argp_parse (&argp_toplevel, argc, argv, ARGP_IN_ORDER, NULL, NULL);
-
-  exit (0);
-
-
-
-  /* version info */
-  if (2 <= argc && 0 == strcmp("-v", argv[1])) {
-    fprintf(stdout, "%s version " __DATE__ "\n", argv[0]);
-    return EXIT_SUCCESS;
-  }
-
-  /* sanity check */
-  if (4 != argc) {
-    fprintf(stderr, "usage : %s input_0.tiff input_1.tiff output.tiff\n", argv[0]);
-    return EXIT_FAILURE;
-  }
-
-  /* TIFF 16-bit grayscale -> float input */
-  if (NULL == (frame0 = read_tiff_gray16_f32(argv[1], &nx0, &ny0, &description))) {
-    fprintf(stderr, "error while reading from %s\n", argv[1]);
-    return EXIT_FAILURE;
-  }
-  if (NULL == (frame1 = read_tiff_gray16_f32(argv[2], &nx1, &ny1, &description))) {
-    fprintf(stderr, "error while reading from %s\n", argv[2]);
-    return EXIT_FAILURE;
-  }
-  if (nx0 != nx1 or ny0 != ny1) {
-    fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
-    return EXIT_FAILURE;
-  }
-  origWidth = nx0;
-  origHeight = ny0;
-  width = origWidth + origHeight;
-
-  if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
-    fprintf(stderr, "allocation error. not enough memory?\n");
-    return EXIT_FAILURE;
-  }
-  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
-    fprintf(stderr, "allocation error. not enough memory?\n");
-    return EXIT_FAILURE;
-  }
-
-  for (unsigned long i = 0; i < width * width * 3; i++) {
-    data_in[i] = 0;
-  }
-  for (unsigned long i = 0; i < (unsigned long)origWidth * origHeight; i++) {
-    if (origWidth > origHeight) {
-      // Landscape
-      //
-      // B........G
-      // ..........
-      // ..........
-      // G........R
-      //
-      landscape = true;
-      unsigned long x0 = i % origWidth + (unsigned long)(i / origWidth);
-      unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-      unsigned long y = (origWidth - i % origWidth - 1) + (i / origWidth);
-      data_in[y * width + x0] = frame0[i];
-      data_in[y * width + x1] = frame1[i];
-      data_in[y * width + x0 + width * width] = frame0[i];
-      data_in[y * width + x1 + width * width] = frame1[i];
-      data_in[y * width + x0 + width * width * 2] = frame0[i];
-      data_in[y * width + x1 + width * width * 2] = frame1[i];
-    }
-    else {
-      // Portrait 270° CW
-      //
-      //  G.....R
-      //  .......
-      //  .......
-      //  .......
-      //  B.....G
-      //
-      unsigned long x0 = origHeight - 1 + i % origWidth - (unsigned long)(i / origWidth);
-      unsigned long x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-      unsigned long y = i % origWidth + (unsigned long)(i / origWidth);
-      data_in[y * width + x0] = frame0[i];
-      data_in[y * width + x1] = frame1[i];
-      data_in[y * width + x0 + width * width] = frame0[i];
-      data_in[y * width + x1 + width * width] = frame1[i];
-      data_in[y * width + x0 + width * width * 2] = frame0[i];
-      data_in[y * width + x1 + width * width * 2] = frame1[i];
-    }
-  }
-  fprintf(stderr, "merged input frames\n");
-
-  write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
-
-  /* process */
-  //interpolate(ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
-  interpolate (
-    data_in,
-    data_in + width * width,
-    data_in + 2 * width * width,
-    data_out,
-    data_out + width * width,
-    data_out + 2 * width * width,
-    (int) width,
-    (int) width,
-    landscape ? origWidth : origHeight,
-    landscape ? origHeight : origWidth
-  );
-
-  /* limit to 0-65535 */
-  out_ptr = data_out;
-  end_ptr = out_ptr + 3 * width * width;
-  while (out_ptr < end_ptr) {
-    if ( 0 > *out_ptr)
-      *out_ptr = 0;
-    if ( 65535 < *out_ptr)
-      *out_ptr = 65535;
-    out_ptr++;
-  }
-
-  fprintf(stderr, "writing output to %s\n", argv[3]);
-  write_tiff_rgb_f32(argv[3], data_out, width, width);
-
-  free(data_in);
-  free(data_out);
-
-  return EXIT_SUCCESS;
-}

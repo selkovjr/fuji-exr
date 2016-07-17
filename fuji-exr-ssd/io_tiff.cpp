@@ -71,7 +71,7 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
   if (1 != TIFFGetField(fp, TIFFTAG_IMAGEDESCRIPTION, &c)) {
     fprintf(stderr, "Warning: TIFFTAG_IMAGEDESCRIPTION could not be read\n");
   }
-  fprintf(stderr, "TIFF description: %s\n", c);
+  fprintf(stderr, "  TIFF description: %s\n", c);
 
   if (NULL != nx)
     *nx = (size_t) width;
@@ -87,7 +87,7 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
   }
 
   TIFFGetField(fp, TIFFTAG_SAMPLESPERPIXEL, &nsamples);
-  fprintf(stderr, "samples: %d, width: %d, height: %d\n", nsamples, width, height);
+  fprintf(stderr, "  samples: %d, width: %d, height: %d\n", nsamples, width, height);
 
   /* setup the pointers */
   ptr_r = data;

@@ -1,5 +1,8 @@
-fuji-exr-ssd
-============
+fuji-exr
+========
+
+A multi-tool for processing Fuji EXR Bayer images
+
 
 Self-similarity Driven Demosaicking of Fuji EXR images
 
@@ -7,10 +10,9 @@ after [www.ipol.im/pub/art/2011/bcms-ssdd/](http://www.ipol.im/pub/art/2011/bcms
 
 ## ABOUT
 
-This software was originally written by A. Buades <toni.buades@uib.es>
-with contributions from Nicolas Limare.
-
-Adapted to Fuji EXR by Gene Selkov <selkovjr@gmail.com>.
+Portions of this software (supporting the `ssd` subcommand) were originally
+written by A. Buades <toni.buades@uib.es> with contributions from Nicolas
+Limare.  Adapted to Fuji EXR by Gene Selkov <selkovjr@gmail.com>.
 
 All files are distributed under the terms of the LGPLv3 license.
 
@@ -31,11 +33,9 @@ The libtiff header and libraries are required on the system for
 compilation and execution.
 
 
-
 ## COMPILATION
 
 Simply use the provided makefile, with the command `make`.
-
 
 
 ## USAGE
@@ -44,7 +44,7 @@ Simply use the provided makefile, with the command `make`.
 
 ```
 dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
-./fuji-exr-ssd raw_[01].tiff out.tiff
+./fuji-exr ssd raw_[01].tiff out.tiff
 ```
 
 * `raw.RAF`: Fuji raw image, shot in EXR high-res mode, or in P-mode
@@ -57,9 +57,9 @@ Presently supported camera orientations: landscape (horizontal), portrait (270 C
 
 ```
 dcraw -d -s all -4 -T 160206_172303.RAF
-fuji-exr-interpolate 160206_172303_* interpolated.tiff
+fuji-exr linear 160206_172303_* interpolated.tiff
 convert interpolated.tiff -separate interpolated-%d.tiff
 radial-distort 1.002002 -0.006203 0.008245 -0.003979 interpolated-0.tiff interpolated-distorted-0.tiff
 radial-distort 1.000725 -0.000260 -0.001201 0.000909 interpolated-2.tiff interpolated-distorted-2.tiff
-fuji-exr-ssd -c 3264 2464 interpolated-distorted-0.tiff interpolated-1.tiff interpolated-distorted-2.tiff out.tiff
+fuji-exr ssd -m 3264x2464 interpolated-distorted-0.tiff interpolated-1.tiff interpolated-distorted-2.tiff out.tiff
 ```
