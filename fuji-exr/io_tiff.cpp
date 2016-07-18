@@ -18,7 +18,13 @@
 
 
 #include <string.h>
+#include <iostream>
+
+#include "termcolor.h"
 #include "io_tiff.h"
+
+using namespace std;
+using namespace termcolor;
 
 
 /*
@@ -69,9 +75,11 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
   }
 
   if (1 != TIFFGetField(fp, TIFFTAG_IMAGEDESCRIPTION, &c)) {
-    fprintf(stderr, "  Warning: TIFFTAG_IMAGEDESCRIPTION could not be read\n");
+    cerr << orange << "  Warning: " << yellow << "TIFFTAG_IMAGEDESCRIPTION" << orange << " could not be read" << reset << endl;
   }
-  fprintf(stderr, "  TIFF description: %s\n", c);
+  else {
+    cerr << grey << "  TIFF description: " << blue << c << reset << endl;
+  }
 
   if (NULL != nx)
     *nx = (size_t) width;
@@ -87,7 +95,12 @@ float *read_tiff_gray16_f32(const char *fname, size_t *nx, size_t *ny, char **de
   }
 
   TIFFGetField(fp, TIFFTAG_SAMPLESPERPIXEL, &nsamples);
-  fprintf(stderr, "  samples: %d, width: %d, height: %d\n", nsamples, width, height);
+  cerr << grey << "  color planes: " << nsamples << ", width: " << white << width << grey << ", height: " << white << height << reset << endl;
+
+  if (nsamples > 1) {
+    cerr << on_red << "Error: " << bold << fname << reset << on_red << " is not a grayscale image" << reset << endl;
+    exit(EXIT_FAILURE);
+  }
 
   /* setup the pointers */
   ptr_r = data;
