@@ -5,13 +5,11 @@
 #include <assert.h>
 #include <error.h>
 #include <algorithm>
-#include <omp.h>
 #include <ctime>
 
 #include "cfa_mask.h"
 #include "io_tiff.h"
-#include "tiffio.h"
-#include "libAuxiliary.h"
+#include "libAuxiliary.h" // wxCopy()
 
 #define DIAG 1.4142136
 #define DIAG12 2.236 // sqrt(5)
@@ -37,23 +35,28 @@ void interpolate (
 // ## linear command parser
 
 struct arg_linear {
-  char* geometry;
+  bool hr;
   char* input_file_0;
   char* input_file_1;
   char* output_file;
 };
 
-static char args_doc_linear[] = "bayer_0.tiff bayer_1.tiff output.tiff";
+static char args_doc_linear[] = "[bayer.tiff | -h bayer_0.tiff bayer_1.tiff] output.tiff";
 
 static char doc_linear[] =
 "\n"
-"Merge and interpolate the two halves of the EXR-HR Bayer array \n"
+"Merge and interpolate the two subframes of the EXR Bayer array,\n"
+"or interpolate a single frame."
 "\n"
 "Input:\n"
-"  Two raw Bayer frames extracted with dcraw from\n"
-"  an HR (high-resolution) EXR image:\n"
+"  One or two raw Bayer frames extracted with dcraw from\n"
+"  an EXR image:\n"
 "\n"
 "    dcraw -v -w -d -s all -4 -T <source.RAF>\n"
+"\n"
+"  The number of input frames depends on the EXR mode and rendering intent.\n"
+"  The HR (high-resolution) images can be assembled from frames shot in any\n"
+"  mode, and in that case, the frames must be interpolated together."
 "\n"
 "Output:\n"
 "  Interpolated TIFF image"
@@ -63,10 +66,17 @@ static char doc_linear[] =
 "\n"
 "  1. The two input frames are rotated 45° CCW and merged\n"
 "     (interleaved) to reconstruct the high-resoluttion\n"
-"     EXR matrix.\n"
+"     EXR matrix. This step is not done in the case of a\n"
+"     single input frame."
 "\n"
-"  2. A simple linear interpolation with symmetrical stencils\n"
-"     is used to fill the missing pixels in each color plane.\n"
+"  2. A simple linear interpolation with symmetrical unbiased\n"
+"     stencils is used to fill the missing pixels in each color\n"
+"     plane.\n"
+"\n"
+"  When assembling an HR image, if any transformations need to be\n"
+"  applied to the input frames (such as exposure adjustment to\n"
+"  frames shot in the SN mode), such transformations must precede\n"
+"  interpolation.\n"
 "\n"
 ;
 
@@ -77,6 +87,10 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
   assert( arguments );
 
   switch(key) {
+    case 'h':
+      arguments->hr = true;
+      break;
+
     case ARGP_KEY_NO_ARGS:
       argp_usage (state);
 
@@ -86,17 +100,33 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
       nonopt = &state->argv[state->next];
       state->next = state->argc; // we're done
 
-      arguments->input_file_0 = arg;
-      arguments->input_file_1 = nonopt[0];
-      arguments->output_file = nonopt[1];
+      if (arguments->hr) {
+        arguments->input_file_0 = arg;
+        arguments->input_file_1 = nonopt[0];
+        arguments->output_file = nonopt[1];
+      }
+      else {
+        arguments->input_file_0 = arg;
+        arguments->output_file = nonopt[0];
+      }
       break;
 
     case ARGP_KEY_END:
-      if (state->arg_num < 3) {
-        argp_error(state, "Not enough arguments");
+      if (arguments->hr) {
+        if (state->arg_num < 3) {
+          argp_error(state, "Not enough arguments");
+        }
+        if (state->arg_num > 3) {
+          argp_error(state, "Extra arguments");
+        }
       }
-      if (state->arg_num > 3) {
-        argp_error(state, "Extra arguments");
+      else {
+        if (state->arg_num < 2) {
+          argp_error(state, "Not enough arguments");
+        }
+        if (state->arg_num > 2) {
+          argp_error(state, "Extra arguments");
+        }
       }
       break;
 
@@ -109,8 +139,13 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+static struct argp_option options_linear[] = {
+  {"high-res", 'h', 0, 0, "merge input frames into a tilted HR Bayer array" },
+  { 0 }
+};
+
 static struct argp argp_linear = {
-  0, // no options
+  options_linear,
   parse_linear_command,
   args_doc_linear,
   doc_linear
@@ -128,6 +163,7 @@ void run_linear (struct argp_state* state) {
   argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" linear") + 1);
   if (!argv[0]) argp_failure(state, 1, ENOMEM, 0);
   sprintf(argv[0], "%s linear", state->name);
+  args.hr = false; // default value -- important!
   argp_parse(&argp_linear, argc, argv, ARGP_IN_ORDER, &argc, &args);
   free(argv[0]);
   argv[0] = argv0;
@@ -152,124 +188,141 @@ void run_linear (struct argp_state* state) {
   /* TIFF 16-bit grayscale -> float input */
   start_time = clock();
   {
-    fprintf(stderr, "input file 0: %s\n", args.input_file_0);
-    if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_0);
-      exit(EXIT_FAILURE);
-    }
+    if (args.hr) {
+      fprintf(stderr, "input file 0: %s\n", args.input_file_0);
+      if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+        exit(EXIT_FAILURE);
+      }
 
-    fprintf(stderr, "input file 1: %s\n", args.input_file_1);
-    if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
-      fprintf(stderr, "error while reading from %s\n", args.input_file_1);
-      exit(EXIT_FAILURE);
+      fprintf(stderr, "input file 1: %s\n", args.input_file_1);
+      if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_1);
+        exit(EXIT_FAILURE);
+      }
+      if (nx0 != nx1 or ny0 != ny1) {
+        fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
+        exit(EXIT_FAILURE);
+      }
     }
-  }
-  end_time = clock();
-  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to read input\n", elapsed);
-
-  start_time = clock();
-  {
-    if (nx0 != nx1 or ny0 != ny1) {
-      fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
-      exit(EXIT_FAILURE);
+    else {
+      fprintf(stderr, "input file: %s\n", args.input_file_0);
+      if (NULL == (data_in = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
+        fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+        exit(EXIT_FAILURE);
+      }
+      frame0 = frame1 = data_in; // to avoid -Wmaybe-uninitialized
     }
 
     cfaWidth = nx0;
     cfaHeight = ny0;
     width = cfaWidth + cfaHeight;
     landscape = cfaWidth > cfaHeight ? true : false;
-
-    if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
-      fprintf(stderr, "allocation error. not enough memory?\n");
-      exit(EXIT_FAILURE);
-    }
-    if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
-      fprintf(stderr, "allocation error. not enough memory?\n");
-      exit(EXIT_FAILURE);
-    }
-
-    for (i = 0; i < width * width * 3; i++) {
-      data_in[i] = 0;
-    }
   }
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to allocate and zero-set memory\n", elapsed);
+  fprintf(stderr, "%6.3f seconds to read input\n", elapsed);
 
-  start_time = clock();
-  for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
-    if (landscape) {
-      //
-      // B........G
-      // ..........
-      // ..........
-      // G........R
-      //
-      x0 = i % cfaWidth + (unsigned long)(i / cfaWidth);
-      x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-      y = (cfaWidth - i % cfaWidth - 1) + (i / cfaWidth);
-      data_in[y * width + x0] = frame0[i];
-      data_in[y * width + x1] = frame1[i];
-      data_in[y * width + x0 + width * width] = frame0[i];
-      data_in[y * width + x1 + width * width] = frame1[i];
-      data_in[y * width + x0 + width * width * 2] = frame0[i];
-      data_in[y * width + x1 + width * width * 2] = frame1[i];
+  if (args.hr) {
+    start_time = clock();
+    {
+      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
+        fprintf(stderr, "allocation error. not enough memory?\n");
+        exit(EXIT_FAILURE);
+      }
+      if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
+        fprintf(stderr, "allocation error. not enough memory?\n");
+        exit(EXIT_FAILURE);
+      }
+
+      for (i = 0; i < width * width * 3; i++) {
+        data_in[i] = 0;
+      }
     }
-    else {
-      // Portrait 270° CW
-      //
-      //  G.....R
-      //  .......
-      //  .......
-      //  .......
-      //  B.....G
-      //
-      x0 = cfaHeight - 1 + i % cfaWidth - (unsigned long)(i / cfaWidth);
-      x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
-      y = i % cfaWidth + (unsigned long)(i / cfaWidth);
-      data_in[y * width + x0] = frame0[i];
-      data_in[y * width + x1] = frame1[i];
-      data_in[y * width + x0 + width * width] = frame0[i];
-      data_in[y * width + x1 + width * width] = frame1[i];
-      data_in[y * width + x0 + width * width * 2] = frame0[i];
-      data_in[y * width + x1 + width * width * 2] = frame1[i];
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to allocate and zero-set memory\n", elapsed);
+
+    start_time = clock();
+    for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
+      if (landscape) {
+        //
+        // B........G
+        // ..........
+        // ..........
+        // G........R
+        //
+        x0 = i % cfaWidth + (unsigned long)(i / cfaWidth);
+        x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+        y = (cfaWidth - i % cfaWidth - 1) + (i / cfaWidth);
+        data_in[y * width + x0] = frame0[i];
+        data_in[y * width + x1] = frame1[i];
+        data_in[y * width + x0 + width * width] = frame0[i];
+        data_in[y * width + x1 + width * width] = frame1[i];
+        data_in[y * width + x0 + width * width * 2] = frame0[i];
+        data_in[y * width + x1 + width * width * 2] = frame1[i];
+      }
+      else {
+        // Portrait 270° CW
+        //
+        //  G.....R
+        //  .......
+        //  .......
+        //  .......
+        //  B.....G
+        //
+        x0 = cfaHeight - 1 + i % cfaWidth - (unsigned long)(i / cfaWidth);
+        x1 = x0 + 1; // the second frame (fn == 1) is shifted 1px to the right
+        y = i % cfaWidth + (unsigned long)(i / cfaWidth);
+        data_in[y * width + x0] = frame0[i];
+        data_in[y * width + x1] = frame1[i];
+        data_in[y * width + x0 + width * width] = frame0[i];
+        data_in[y * width + x1 + width * width] = frame1[i];
+        data_in[y * width + x0 + width * width * 2] = frame0[i];
+        data_in[y * width + x1 + width * width * 2] = frame1[i];
+      }
     }
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to merge input frames\n", elapsed);
+
+    // write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
+
+    start_time = clock();
+    unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to compute CFA mask\n", elapsed);
+
+    start_time = clock();
+    interpolate (
+      data_in,
+      data_in + width * width,
+      data_in + 2 * width * width,
+      data_out,
+      data_out + width * width,
+      data_out + 2 * width * width,
+      (int) width,
+      (int) width,
+      landscape ? cfaWidth : cfaHeight,
+      landscape ? cfaHeight : cfaWidth,
+      mask
+    );
+
+    delete[] mask;
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    fprintf(stderr, "%6.3f seconds to interpolate\n", elapsed);
+  } // HR
+
+  else {
+    exit(0);
   }
-  end_time = clock();
-  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to merge input frames\n", elapsed);
-
-  // write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
-
-  start_time = clock();
-  unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
-  end_time = clock();
-  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to compute CFA mask\n", elapsed);
-
-  start_time = clock();
-  interpolate (
-    data_in,
-    data_in + width * width,
-    data_in + 2 * width * width,
-    data_out,
-    data_out + width * width,
-    data_out + 2 * width * width,
-    (int) width,
-    (int) width,
-    landscape ? cfaWidth : cfaHeight,
-    landscape ? cfaHeight : cfaWidth,
-    mask
-  );
-  end_time = clock();
-  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to interpolate\n", elapsed);
 
   /* limit to 0-65535 */
   start_time = clock();
   {
-    out_ptr = data_out;
+  out_ptr = data_out;
     end_ptr = out_ptr + 3 * width * width;
     while (out_ptr < end_ptr) {
       if ( 0 > *out_ptr)
@@ -292,7 +345,6 @@ void run_linear (struct argp_state* state) {
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
   fprintf(stderr, "%6.3f seconds to write\n", elapsed);
 
-  delete[] mask;
   free(data_in);
   free(data_out);
 
