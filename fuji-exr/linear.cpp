@@ -1,4 +1,3 @@
-#include <argp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +7,7 @@
 #include <iostream>
 #include <iomanip>
 
-#include "subcommands.h"
+#include "linear_args.h"
 #include "termcolor.h"
 #include "cfa_mask.h"
 #include "io_tiff.h"
