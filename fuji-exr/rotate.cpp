@@ -104,7 +104,7 @@ void run_rotate (struct argp_state* state) {
     data_in[i] = 0;
   }
 
-  unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
+  unsigned char *mask = exr_cfa_mask(width, width, cfaWidth, cfaHeight);
 
   for (long y = 0; y < width; y++) {
     fprintf(stderr, "%03ld: ", y);
@@ -131,6 +131,37 @@ void run_rotate (struct argp_state* state) {
   }
 
   write_tiff_rgb_f32("mask.tiff", data_in, width, width);
+
+  delete[] mask;
+
+  mask = bggr_cfa_mask(cfaWidth, cfaHeight);
+
+  for (long y = 0; y < cfaHeight; y++) {
+    fprintf(stderr, "%03ld: ", y);
+    for (long x = 0; x < cfaWidth; x++) {
+      long p = y * cfaWidth + x;
+      switch (mask[p]) {
+       case REDPOSITION:
+         fprintf(stderr, "r ");
+         data_in[p] = 65535;
+         break;
+       case GREENPOSITION:
+         fprintf(stderr, "g ");
+         data_in[p + cfaWidth * cfaHeight] = 65535;
+         break;
+       case BLUEPOSITION:
+         fprintf(stderr, "b ");
+         data_in[p + 2 * cfaWidth * cfaHeight] = 65535;
+         break;
+       default:
+         fprintf(stderr, ". ");
+      }
+    }
+    fprintf(stderr, "\n");
+  }
+
+  write_tiff_rgb_f32("mask.tiff", data_in, cfaWidth, cfaHeight);
+  exit(0);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
