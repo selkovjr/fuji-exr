@@ -439,7 +439,7 @@ void run_sdd (struct argp_state* state) {
   }
 
   start_time = clock();
-  unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
+  unsigned char *mask = exr_cfa_mask(width, width, cfaWidth, cfaHeight);
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
   fprintf(stderr, "%6.3f seconds to compute CFA mask\n", elapsed);
