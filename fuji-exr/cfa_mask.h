@@ -7,6 +7,7 @@
 #define BLUEPOSITION 3
 
 // CFA Mask indicating which color each sensor pixel has
-unsigned char* cfa_mask(unsigned width, unsigned height, unsigned imageWidth, unsigned imageHeight);
+unsigned char* exr_cfa_mask(unsigned width, unsigned height, unsigned imageWidth, unsigned imageHeight);
+unsigned char* bggr_cfa_mask(unsigned width, unsigned height);
 
 #endif
