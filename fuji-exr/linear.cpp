@@ -4,9 +4,12 @@
 #include <string.h>
 #include <assert.h>
 #include <error.h>
-#include <algorithm>
 #include <ctime>
+#include <iostream>
+#include <iomanip>
 
+#include "subcommands.h"
+#include "termcolor.h"
 #include "cfa_mask.h"
 #include "io_tiff.h"
 #include "libAuxiliary.h" // wxCopy()
@@ -17,7 +20,10 @@
 #define DUMP_STAGES
 #undef DEBUG_GREEN
 
-void interpolate (
+using namespace std;
+using namespace termcolor;
+
+void interpolate_hires_linear (
   float *ired,
   float *igreen,
   float *iblue,
@@ -26,6 +32,18 @@ void interpolate (
   float *oblue,
   int width,
   int height,
+  int cfaWidth,
+  int cfaHeight,
+  unsigned char *mask
+);
+
+void interpolate_subframe_linear (
+  float *ired,
+  float *igreen,
+  float *iblue,
+  float *ored,
+  float *ogreen,
+  float *oblue,
   int cfaWidth,
   int cfaHeight,
   unsigned char *mask
@@ -155,19 +173,7 @@ static struct argp argp_linear = {
 // --------------------
 
 void run_linear (struct argp_state* state) {
-  // command-line stuff
-  struct arg_linear args;
-  int    argc = state->argc - state->next + 1;
-  char** argv = &state->argv[state->next - 1];
-  char*  argv0 =  argv[0];
-  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" linear") + 1);
-  if (!argv[0]) argp_failure(state, 1, ENOMEM, 0);
-  sprintf(argv[0], "%s linear", state->name);
-  args.hr = false; // default value -- important!
-  argp_parse(&argp_linear, argc, argv, ARGP_IN_ORDER, &argc, &args);
-  free(argv[0]);
-  argv[0] = argv0;
-  state->next += argc - 1;
+  PARSE_ARGS_LINEAR;
 
   clock_t start_time, end_time;
   double elapsed;
@@ -178,70 +184,85 @@ void run_linear (struct argp_state* state) {
   char *description;
   unsigned long cfaWidth;
   unsigned long cfaHeight;
-  unsigned long width;
+  unsigned long width, height;
   float *frame0, *frame1;
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
   bool landscape;
   unsigned long i, x0, x1, y;
 
+  cerr.setf(ios::fixed, ios::floatfield);
+
   /* TIFF 16-bit grayscale -> float input */
   start_time = clock();
   {
     if (args.hr) {
-      fprintf(stderr, "input file 0: %s\n", args.input_file_0);
+      cerr << grey << "input file 0: " << white << args.input_file_0 << reset << endl;
       if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
-        fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+        cerr << on_red << "error while reading from " << args.input_file_0 << reset << endl;
         exit(EXIT_FAILURE);
       }
 
-      fprintf(stderr, "input file 1: %s\n", args.input_file_1);
+      cerr << grey << "input file 1: " << white << args.input_file_1 << reset << endl;
       if (NULL == (frame1 = read_tiff_gray16_f32(args.input_file_1, &nx1, &ny1, &description))) {
-        fprintf(stderr, "error while reading from %s\n", args.input_file_1);
+        cerr << on_red << "error while reading from " << args.input_file_1 << reset << endl;
         exit(EXIT_FAILURE);
       }
       if (nx0 != nx1 or ny0 != ny1) {
-        fprintf(stderr, "Input frames must have identical size. Got %ldx%ld vs. %ldx%ld\n", nx0, ny0, nx1, ny1);
+        cerr << on_red << "Input frames must have identical geometry. Got "
+          << bold << nx0 << reset << on_red << "×" << bold << ny0 << reset
+          << on_red << " and "
+          << bold << nx1 << reset << on_red << "×" << bold << ny1 << reset
+          << endl;
         exit(EXIT_FAILURE);
       }
+
+      cfaWidth = nx0;
+      cfaHeight = ny0;
+      width = height = cfaWidth + cfaHeight;
     }
     else {
-      fprintf(stderr, "input file: %s\n", args.input_file_0);
+      cerr << grey << "input file 0: " << white << args.input_file_0 << reset << endl;
       if (NULL == (data_in = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
-        fprintf(stderr, "error while reading from %s\n", args.input_file_0);
+        cerr << on_red << "error while reading from " << args.input_file_0 << reset << endl;
         exit(EXIT_FAILURE);
       }
+      if (NULL == (data_out = (float *) malloc(sizeof(float) * nx0 * ny0 * 3))) {
+        cerr << on_red << "allocation error: not enough memory" << reset << endl;
+        exit(EXIT_FAILURE);
+      }
+
       frame0 = frame1 = data_in; // to avoid -Wmaybe-uninitialized
+
+      width = cfaWidth = nx0;
+      height = cfaHeight = ny0;
     }
 
-    cfaWidth = nx0;
-    cfaHeight = ny0;
-    width = cfaWidth + cfaHeight;
     landscape = cfaWidth > cfaHeight ? true : false;
   }
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to read input\n", elapsed);
+  cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " reading input" << reset << endl;
 
   if (args.hr) {
     start_time = clock();
     {
-      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * width * 3))) {
-        fprintf(stderr, "allocation error. not enough memory?\n");
+      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * height * 3))) {
+        cerr << on_red << "allocation error: not enough memory" << reset << endl;
         exit(EXIT_FAILURE);
       }
-      if (NULL == (data_out = (float *) malloc(sizeof(float) * width * width * 3))) {
-        fprintf(stderr, "allocation error. not enough memory?\n");
+      if (NULL == (data_out = (float *) malloc(sizeof(float) * width * height * 3))) {
+        cerr << on_red << "allocation error: not enough memory" << reset << endl;
         exit(EXIT_FAILURE);
       }
 
-      for (i = 0; i < width * width * 3; i++) {
+      for (i = 0; i < width * height * 3; i++) {
         data_in[i] = 0;
       }
     }
     end_time = clock();
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-    fprintf(stderr, "%6.3f seconds to allocate and zero-set memory\n", elapsed);
+    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " allocating and zero-setting memory" << reset << endl;
 
     start_time = clock();
     for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
@@ -257,10 +278,10 @@ void run_linear (struct argp_state* state) {
         y = (cfaWidth - i % cfaWidth - 1) + (i / cfaWidth);
         data_in[y * width + x0] = frame0[i];
         data_in[y * width + x1] = frame1[i];
-        data_in[y * width + x0 + width * width] = frame0[i];
-        data_in[y * width + x1 + width * width] = frame1[i];
-        data_in[y * width + x0 + width * width * 2] = frame0[i];
-        data_in[y * width + x1 + width * width * 2] = frame1[i];
+        data_in[y * width + x0 + width * height] = frame0[i];
+        data_in[y * width + x1 + width * height] = frame1[i];
+        data_in[y * width + x0 + width * height * 2] = frame0[i];
+        data_in[y * width + x1 + width * height * 2] = frame1[i];
       }
       else {
         // Portrait 270° CW
@@ -276,34 +297,34 @@ void run_linear (struct argp_state* state) {
         y = i % cfaWidth + (unsigned long)(i / cfaWidth);
         data_in[y * width + x0] = frame0[i];
         data_in[y * width + x1] = frame1[i];
-        data_in[y * width + x0 + width * width] = frame0[i];
-        data_in[y * width + x1 + width * width] = frame1[i];
-        data_in[y * width + x0 + width * width * 2] = frame0[i];
-        data_in[y * width + x1 + width * width * 2] = frame1[i];
+        data_in[y * width + x0 + width * height] = frame0[i];
+        data_in[y * width + x1 + width * height] = frame1[i];
+        data_in[y * width + x0 + width * height * 2] = frame0[i];
+        data_in[y * width + x1 + width * height * 2] = frame1[i];
       }
     }
     end_time = clock();
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-    fprintf(stderr, "%6.3f seconds to merge input frames\n", elapsed);
+    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " merging input frames" << reset << endl;
 
-    // write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
+    // write_tiff_rgb_f32("input-merged.tif", data_in, width, height);
 
     start_time = clock();
-    unsigned char *mask = cfa_mask(width, width, cfaWidth, cfaHeight);
+    unsigned char *mask = exr_cfa_mask(width, height, cfaWidth, cfaHeight);
     end_time = clock();
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-    fprintf(stderr, "%6.3f seconds to compute CFA mask\n", elapsed);
+    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " computing the CFA mask" << reset << endl;
 
     start_time = clock();
-    interpolate (
+    interpolate_hires_linear (
       data_in,
-      data_in + width * width,
-      data_in + 2 * width * width,
+      data_in + width * height,
+      data_in + 2 * width * height,
       data_out,
-      data_out + width * width,
-      data_out + 2 * width * width,
+      data_out + width * height,
+      data_out + 2 * width * height,
       (int) width,
-      (int) width,
+      (int) height,
       landscape ? cfaWidth : cfaHeight,
       landscape ? cfaHeight : cfaWidth,
       mask
@@ -312,18 +333,44 @@ void run_linear (struct argp_state* state) {
     delete[] mask;
     end_time = clock();
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-    fprintf(stderr, "%6.3f seconds to interpolate\n", elapsed);
+    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " interpolating" << reset << endl;
   } // HR
 
-  else {
-    exit(0);
+  else { // interpolate one BGGR subframe
+    start_time = clock();
+    unsigned char *mask = bggr_cfa_mask(width, height);
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " computing the CFA mask" << reset << endl;
+
+    // It's bitching about data_in and data_out
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+    start_time = clock();
+    interpolate_subframe_linear (
+      data_in,
+      data_in + width * height,
+      data_in + 2 * width * height,
+      data_out,
+      data_out + width * height,
+      data_out + 2 * width * height,
+      (int)width,
+      (int)height,
+      mask
+    );
+#pragma GCC diagnostic pop
+
+    delete[] mask;
+    end_time = clock();
+    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " interpolating" << reset << endl;
   }
 
   /* limit to 0-65535 */
   start_time = clock();
   {
-  out_ptr = data_out;
-    end_ptr = out_ptr + 3 * width * width;
+    out_ptr = data_out;
+    end_ptr = out_ptr + 3 * width * height;
     while (out_ptr < end_ptr) {
       if ( 0 > *out_ptr)
         *out_ptr = 0;
@@ -334,16 +381,16 @@ void run_linear (struct argp_state* state) {
   }
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to clip values\n", elapsed);
+  cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " clipping values" << reset << endl;
 
-  fprintf(stderr, "writing output to %s\n", args.output_file);
+  cerr << grey << "writing output to " << white << args.output_file << reset << endl;
   start_time = clock();
   {
-    write_tiff_rgb_f32(args.output_file, data_out, width, width);
+    write_tiff_rgb_f32(args.output_file, data_out, width, height);
   }
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-  fprintf(stderr, "%6.3f seconds to write\n", elapsed);
+  cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " writing" << reset << endl;
 
   free(data_in);
   free(data_out);
@@ -353,7 +400,7 @@ void run_linear (struct argp_state* state) {
 } // run_linear()
 
 
-void interpolate (
+void interpolate_hires_linear (
   float *ired,
   float *igreen,
   float *iblue,
@@ -464,14 +511,13 @@ void interpolate (
          ) {
         int
           n = (y - 1) * width + x,
-            s = (y + 1) * width + x;
+          s = (y + 1) * width + x;
 
         ogreen[p] = (ogreen[n] + ogreen[s]) / 2.0;
       }
     }
   }
-  fprintf(stderr, "green channel interpolated\n");
-
+  cerr << green << "green " << grey << "channel interpolated" << endl;
 
   // Interpolate blue making the average of possible values in
   // location-dependent patterns (different for G and R locations)
@@ -651,7 +697,7 @@ void interpolate (
       }
     }
   }
-  fprintf(stderr, "blue interpolated\n");
+  cerr << blue << " blue " << grey << "channel interpolated" << endl;
 
 
   // Interpolate red making the average of possible values in
@@ -805,6 +851,146 @@ void interpolate (
       }
     }
   }
-  fprintf(stderr, "red interpolated\n");
+  cerr << red << "  red " << grey << "channel interpolated" << endl;
 
-} // interpolate();
+} // interpolate_hires_linear();
+
+
+void interpolate_subframe_linear (
+  float *ired,
+  float *igreen,
+  float *iblue,
+  float *ored,
+  float *ogreen,
+  float *oblue,
+  int width,
+  int height,
+  unsigned char *mask
+) {
+  long x, y, p;
+
+  wxCopy(ired, ored, width * height);
+  wxCopy(igreen, ogreen, width * height);
+  wxCopy(iblue, oblue, width * height);
+
+  // -------------------------------------------------
+  // Do simple linear interpolation in the green plane
+  // -------------------------------------------------
+  for (y = 0; y < height; y++) {
+    for (x = 0; x < width; x++) {
+      p = y * width + x;
+      if (mask[p] != GREENPOSITION) {
+        int
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
+          e = p + 1,
+          w = p - 1;
+
+        if (y == 0) { // N edge
+          if (x == 0) { // NW corner
+            ogreen[p] = (ogreen[e] + ogreen[s]) / 2.0;
+          }
+          else {
+            ogreen[p] = (ogreen[e] + ogreen[w]) / 2.0;
+          }
+        }
+        else if (x == 0 and y > 0) { // W edge
+          ogreen[p] = (ogreen[n] + ogreen[s]) / 2.0;
+        }
+        else { // interior
+          ogreen[p] = (ogreen[n] + ogreen[s] + ogreen[w] + ogreen[e]) / 4.0;
+        }
+      }
+    }
+  }
+  cerr << green << "green " << grey << "channel interpolated" << endl;
+
+  // Interpolate blue making the average of possible values in
+  // location-dependent patterns (different for G and R locations)
+  for (x = 0; x < width; x++) {
+    for (y = 0; y < height; y++) {
+      p = y * width + x;
+      if (mask[p] == GREENPOSITION) {
+        int
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
+          e = p + 1,
+          w = p - 1;
+
+        if (x == width - 1) {  // E edge
+          oblue[p] = oblue[w];
+        }
+        else if (y == height - 1) { // S edge
+          oblue[p] = oblue[n];
+        }
+        else if (x % 2) { // odd interior column
+          oblue[p] = (oblue[e] + oblue[w]) / 2.0;
+        }
+        else { // even interior column
+          oblue[p] = (oblue[n] + oblue[s]) / 2.0;
+        }
+      }
+
+      if (mask[p] == REDPOSITION) {
+        int
+          ne = (y - 1) * width + x + 1,
+          se = (y + 1) * width + x + 1,
+          sw = (y + 1) * width + x - 1,
+          nw = (y - 1) * width + x - 1;
+
+        if (x == width - 1 or y == height - 1) {  // E and S edges
+          oblue[p] = oblue[nw];
+        }
+        else { // interior
+          oblue[p] = (oblue[nw] + oblue[ne] + oblue[se] + oblue[sw]) / 4.0;
+        }
+      }
+    }
+  }
+  cerr << blue << " blue " << grey << "channel interpolated" << endl;
+
+  // Interpolate red making the average of possible values in
+  // location-dependent patterns (different for G and B locations)
+  for (x = 0; x < width; x++) {
+    for (y = 0; y < height; y++) {
+      p = y * width + x;
+      if (mask[p] == GREENPOSITION) {
+        int
+          n = (y - 1) * width + x,
+          s = (y + 1) * width + x,
+          e = p + 1,
+          w = p - 1;
+
+        if (x == 0) {  // W edge
+          ored[p] = ored[e];
+        }
+        else if (y == 0) { // N edge
+          ored[p] = ored[s];
+        }
+        else if (x % 2) { // odd interior column
+          ored[p] = (ored[e] + ored[w]) / 2.0;
+        }
+        else { // even interior column
+          ored[p] = (ored[n] + ored[s]) / 2.0;
+        }
+      }
+
+      if (mask[p] == BLUEPOSITION) {
+        int
+          ne = (y - 1) * width + x + 1,
+          se = (y + 1) * width + x + 1,
+          sw = (y + 1) * width + x - 1,
+          nw = (y - 1) * width + x - 1;
+
+        if (x == 0 or y == 0) {  // W and N edges
+          ored[p] = ored[se];
+        }
+        else { // interior
+          ored[p] = (ored[nw] + ored[ne] + ored[se] + ored[sw]) / 4.0;
+        }
+      }
+    }
+  }
+  cerr << red << "  red " << grey << "channel interpolated" << endl;
+
+} // interpolate_subframe_linear();

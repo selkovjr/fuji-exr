@@ -10,7 +10,7 @@ HDRDIR=-I/opt/local/include/ -I/usr/local/include/
 LIBDIR=-L/opt/local/lib/ -L/usr/local/lib/
 
 
-CFLAGS += -g -O3 -D VERSION=\"$(GIT_VERSION)\" \
+CFLAGS += -g -O3 -D VERSION=\"$(GIT_VERSION)\" -fdiagnostics-color=auto \
   -fopenmp -funroll-loops -fomit-frame-pointer  -fno-tree-pre -falign-loops -ffast-math -ftree-vectorize \
   -Weffc++ -pedantic -Wall -Wextra  -Wno-write-strings -Wno-deprecated  $(HDRDIR)
 
