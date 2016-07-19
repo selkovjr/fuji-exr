@@ -36,13 +36,19 @@
 #include <error.h>
 #include <algorithm>
 #include <ctime>
+#include <iostream>
+#include <iomanip>
 
 #include "sdd_args.h"
+#include "termcolor.h"
 #include "cfa_mask.h"
 #include "libdemosaic.h"
 #include "io_tiff.h"
-#include "tiffio.h"
+#include "write_tiff.h"
 #include "libAuxiliary.h"
+
+using namespace std;
+using namespace termcolor;
 
 #define DIAG 1.4142136
 #define DIAG12 2.236 // sqrt(5)
@@ -63,6 +69,7 @@ void run_sdd (struct argp_state* state) {
   float *frame0, *frame1, *frame2; // Bayer EXR frames or TCA-corrected R, G, B
   float *data_in, *data_out, *data_rot;
   float *out_ptr, *end_ptr;
+  ushort *u_data_out;
   bool landscape = false;
 
   if (args.merged_cfa) {
@@ -360,14 +367,14 @@ void run_sdd (struct argp_state* state) {
 
       for (i = 0; i < 3; i++) { // for each color plane
 
-        // David Coffin's original stencil (on an array of pixels)
+        // David Coffin's original stencil (chunked configuration)
         //
         //   pix = img + ur * iwidth + uc;
         //   img[row * wide + col][i] =
         //     (/* + */ pix[    0][i]*(1 - fc) + /* E  */ pix[        1][i] * fc) * (1 - fr) +
         //     (/* S */ pix[width][i]*(1 - fc) + /* SE */ pix[width + 1][i] * fc) * fr;
         //
-        // Same stencil reformulated for stacked color planes
+        // Same stencil reformulated for planar configuration
         //
         data_rot[row * rotWidth + col + i * rotWidth * rotHeight] =
           (1 - fr) * (
@@ -390,13 +397,35 @@ void run_sdd (struct argp_state* state) {
   fprintf(stderr, "%6.3f seconds to rotate\n", elapsed);
 
 
-  fprintf(stderr, "writing output to %s\n", args.output_file);
-  write_tiff_rgb_f32(args.output_file, data_rot, rotWidth, rotHeight);
+  cerr << grey << "writing output to " << white << args.output_file << reset << endl;
+  start_time = clock();
+  {
+    // Not using libtiff to write output because it creates invalid TIFF directories.
+
+    // Convert from planar to chunked
+    if (NULL == (u_data_out = (ushort *) malloc(sizeof(float) * rotWidth * rotHeight * 3))) {
+      cerr << on_red << "allocation error: not enough memory" << reset << endl;
+      exit(EXIT_FAILURE);
+    }
+    for (unsigned x = 0; x < rotWidth; x++) {
+      for (unsigned y = 0; y < rotHeight; y++) {
+        unsigned p = y * rotWidth + x;
+        u_data_out[y * 3 * rotWidth + x * 3] = data_rot[p];
+        u_data_out[y * 3 * rotWidth + x * 3 + 1] = data_rot[p + rotWidth * rotHeight];
+        u_data_out[y * 3 * rotWidth + x * 3 + 2] = data_rot[p + 2 * rotWidth * rotHeight];
+      }
+    }
+    write_tiff_img(args.output_file, (unsigned char *)u_data_out, rotWidth, rotHeight, 16, 3, 0 /* chunked */);
+  }
+  end_time = clock();
+  elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
+  cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " writing" << reset << endl;
 
   delete[] mask;
   free(data_in);
   free(data_out);
   free(data_rot);
+  free(u_data_out);
 
   exit(EXIT_SUCCESS);
 

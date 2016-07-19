@@ -1039,6 +1039,7 @@ void sdd_demosaic_chain (
   //                                /      _________________/      /
   //                               /      /      _________________/
   //                              /      /      /
+  /*
   demosaic_nlmeans(dbloc, 16,  ored, ogreen, oblue,  ired, igreen, iblue,  width, height, origWidth, origHeight, mask);
   write_image("nlmeans-16.tiff",                     ired, igreen, iblue,  width, height);
   //                                            ______/      /      /
@@ -1071,5 +1072,6 @@ void sdd_demosaic_chain (
   //                                         /      /      /
   chromatic_median(iter, projflag, side,  ired, igreen, iblue,  ored, ogreen, oblue,  width, height, origWidth, origHeight);
   write_image("median-1.tiff",                                  ored, ogreen, oblue,  width, height);
+  */
 }
 

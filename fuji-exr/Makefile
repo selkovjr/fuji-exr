@@ -1,6 +1,6 @@
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 
-OBJ = sdd.o linear.o rotate.o cfa_mask.o io_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o progressbar.o
+OBJ = sdd.o linear.o rotate.o cfa_mask.o io_tiff.o write_tiff.o libdemosaic.o  libAuxiliary.o fuji-exr.o progressbar.o
 BIN = fuji-exr
 LIBBIN=.
 
@@ -17,7 +17,7 @@ CFLAGS += -g -O3 -D VERSION=\"$(GIT_VERSION)\" -fdiagnostics-color=auto \
 LDFLAGS += -g $(CFLAGS) $(LIBDIR) -ltiff -lncurses -lgomp -lpthread
 
 
-LIBMX=sdd.o linear.o rotate.o cfa_mask.o io_tiff.o libAuxiliary.o libdemosaic.o progressbar.o
+LIBMX=sdd.o linear.o rotate.o cfa_mask.o io_tiff.o write_tiff.o libAuxiliary.o libdemosaic.o progressbar.o
 
 default: $(OBJ) $(BIN)
 

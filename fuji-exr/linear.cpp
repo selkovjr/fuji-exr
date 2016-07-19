@@ -11,6 +11,7 @@
 #include "termcolor.h"
 #include "cfa_mask.h"
 #include "io_tiff.h"
+#include "write_tiff.h"
 #include "libAuxiliary.h" // wxCopy()
 
 #define DIAG 1.4142136
@@ -61,6 +62,7 @@ void run_linear (struct argp_state* state) {
   float *frame0, *frame1;
   float *data_in, *data_out;
   float *out_ptr, *end_ptr;
+  ushort *u_data_out;
   bool landscape;
   unsigned long i, x0, x1, y;
 
@@ -93,15 +95,20 @@ void run_linear (struct argp_state* state) {
       cfaWidth = nx0;
       cfaHeight = ny0;
       width = height = cfaWidth + cfaHeight;
+
+      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * height * 3))) {
+        cerr << on_red << "allocation error: not enough memory" << reset << endl;
+        exit(EXIT_FAILURE);
+      }
+
+      for (i = 0; i < width * height * 3; i++) {
+        data_in[i] = 0;
+      }
     }
     else {
       cerr << grey << "input file 0: " << white << args.input_file_0 << reset << endl;
       if (NULL == (data_in = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
         cerr << on_red << "error while reading from " << args.input_file_0 << reset << endl;
-        exit(EXIT_FAILURE);
-      }
-      if (NULL == (data_out = (float *) malloc(sizeof(float) * nx0 * ny0 * 3))) {
-        cerr << on_red << "allocation error: not enough memory" << reset << endl;
         exit(EXIT_FAILURE);
       }
 
@@ -117,26 +124,13 @@ void run_linear (struct argp_state* state) {
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
   cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " reading input" << reset << endl;
 
+
+  if (NULL == (data_out = (float *) malloc(sizeof(float) * width * height * 3))) {
+    cerr << on_red << "allocation error: not enough memory" << reset << endl;
+    exit(EXIT_FAILURE);
+  }
+
   if (args.hr) {
-    start_time = clock();
-    {
-      if (NULL == (data_in = (float *) malloc(sizeof(float) * width * height * 3))) {
-        cerr << on_red << "allocation error: not enough memory" << reset << endl;
-        exit(EXIT_FAILURE);
-      }
-      if (NULL == (data_out = (float *) malloc(sizeof(float) * width * height * 3))) {
-        cerr << on_red << "allocation error: not enough memory" << reset << endl;
-        exit(EXIT_FAILURE);
-      }
-
-      for (i = 0; i < width * height * 3; i++) {
-        data_in[i] = 0;
-      }
-    }
-    end_time = clock();
-    elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
-    cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " allocating and zero-setting memory" << reset << endl;
-
     start_time = clock();
     for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
       if (landscape) {
@@ -180,8 +174,6 @@ void run_linear (struct argp_state* state) {
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
     cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " merging input frames" << reset << endl;
 
-    // write_tiff_rgb_f32("input-merged.tif", data_in, width, height);
-
     start_time = clock();
     unsigned char *mask = exr_cfa_mask(width, height, cfaWidth, cfaHeight);
     end_time = clock();
@@ -216,9 +208,6 @@ void run_linear (struct argp_state* state) {
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
     cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " computing the CFA mask" << reset << endl;
 
-    // It's bitching about data_in and data_out
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     start_time = clock();
     interpolate_subframe_linear (
       data_in,
@@ -231,7 +220,6 @@ void run_linear (struct argp_state* state) {
       (int)height,
       mask
     );
-#pragma GCC diagnostic pop
 
     delete[] mask;
     end_time = clock();
@@ -242,6 +230,7 @@ void run_linear (struct argp_state* state) {
   /* limit to 0-65535 */
   start_time = clock();
   {
+    // Clip out-of range values that may have been left from interpolation
     out_ptr = data_out;
     end_ptr = out_ptr + 3 * width * height;
     while (out_ptr < end_ptr) {
@@ -259,7 +248,22 @@ void run_linear (struct argp_state* state) {
   cerr << grey << "writing output to " << white << args.output_file << reset << endl;
   start_time = clock();
   {
-    write_tiff_rgb_f32(args.output_file, data_out, width, height);
+    // Not using libtiff to write output because it creates invalid TIFF directories.
+
+    // Convert from planar to chunked
+    if (NULL == (u_data_out = (ushort *) malloc(sizeof(float) * width * height * 3))) {
+      cerr << on_red << "allocation error: not enough memory" << reset << endl;
+      exit(EXIT_FAILURE);
+    }
+    for (unsigned x = 0; x < width; x++) {
+      for (unsigned y = 0; y < height; y++) {
+        unsigned p = y * width + x;
+        u_data_out[y * 3 * width + x * 3] = data_out[p];
+        u_data_out[y * 3 * width + x * 3 + 1] = data_out[p + width * height];
+        u_data_out[y * 3 * width + x * 3 + 2] = data_out[p + 2 * width * height];
+      }
+    }
+    write_tiff_img(args.output_file, (unsigned char *)u_data_out, width, height, 16, 3, 0 /* chunked */);
   }
   end_time = clock();
   elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
@@ -267,6 +271,7 @@ void run_linear (struct argp_state* state) {
 
   free(data_in);
   free(data_out);
+  free(u_data_out);
 
   exit(EXIT_SUCCESS);
 
