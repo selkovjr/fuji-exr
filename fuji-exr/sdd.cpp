@@ -78,7 +78,7 @@ void run_sdd (struct argp_state* state) {
     printf("green input file: %s\n", args.input_file_1);
     printf("blue input file: %s\n", args.input_file_2);
 
-    if (sscanf(args.geometry, "%lux%lu", &cfaWidth, &cfaHeight) < 0) {
+    if (sscanf(args.geometry, "%lux%lu", &cfaWidth, &cfaHeight) != 2) {
       fprintf(stderr, "error parsing image geometry '%s'\n", args.geometry);
       exit(EXIT_FAILURE);
     }
