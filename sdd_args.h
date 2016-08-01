@@ -4,7 +4,7 @@
 // ## SDD command parser
 //
 struct arg_sdd {
-  bool merged_cfa;
+  bool interlaced_cfa;
   char* geometry;
   char* input_file_0;
   char* input_file_1;
@@ -12,7 +12,7 @@ struct arg_sdd {
   char* output_file;
 };
 
-static char args_doc_sdd[] = "[-m WxH r.tiff g.tiff b.tiff | bayer_0.tiff bayer_1.tiff] output.tiff";
+static char args_doc_sdd[] = "[-x WxH r.tiff g.tiff b.tiff | bayer_0.tiff bayer_1.tiff] output.tiff";
 
 static char doc_sdd[] =
 "\n"
@@ -24,10 +24,9 @@ static char doc_sdd[] =
 "\n"
 "    dcraw -v -w -d -s all -4 -T <source.RAF>\n"
 "\n"
-"  Or, if the -m option is given, image geometry followed\n"
-"  by the three color planes of a merged HR Bayer array.\n"
-"\n"
-"  Use the -m option to operate on preprocessed inputs.\n"
+"  Or, if the -x option is given, the next three arguments\n"
+"  must be the file names of the three color planes (R, G, B)\n"
+"  of an interlaced high-resolution EXR array.\n"
 "\n"
 "Output:\n"
 "  Interpolated and filtered TIFF image"
@@ -71,8 +70,9 @@ static error_t parse_sdd_command(int key, char* arg, struct argp_state* state) {
   assert( arguments );
 
   switch(key) {
-    case 'm':
-      arguments->merged_cfa = true;
+    case 'x':
+      arguments->interlaced_cfa = true;
+      arguments->geometry = arg;
       break;
 
     case ARGP_KEY_NO_ARGS:
@@ -84,34 +84,32 @@ static error_t parse_sdd_command(int key, char* arg, struct argp_state* state) {
       nonopt = &state->argv[state->next];
       state->next = state->argc; // we're done
 
-      if (arguments->merged_cfa) {
-        arguments->geometry = arg;
-        arguments->input_file_0 = nonopt[0];
-        arguments->input_file_1 = nonopt[1];
-        arguments->input_file_2 = nonopt[2];
-        arguments->output_file = nonopt[3];
+      arguments->input_file_0 = arg;
+      if (arguments->interlaced_cfa) {
+        arguments->input_file_1 = nonopt[0];
+        arguments->input_file_2 = nonopt[1];
+        arguments->output_file = nonopt[2];
       }
       else {
-        arguments->input_file_0 = arg;
         arguments->input_file_1 = nonopt[0];
         arguments->output_file = nonopt[1];
       }
       break;
 
     case ARGP_KEY_END:
-      if (arguments->merged_cfa) {
-        if (state->arg_num < 5) {
+      if (arguments->interlaced_cfa) {
+        if (state->arg_num < 4) {
           argp_error(state, "Not enough arguments");
         }
-        if (state->arg_num > 5) {
+        if (state->arg_num > 4) {
           argp_error(state, "Extra arguments");
         }
       }
       else {
-        if (state->arg_num < 3) {
+        if (state->arg_num < 2) {
           argp_error(state, "Not enough arguments");
         }
-        if (state->arg_num > 3) {
+        if (state->arg_num > 2) {
           argp_error(state, "Extra arguments");
         }
       }
@@ -127,7 +125,7 @@ static error_t parse_sdd_command(int key, char* arg, struct argp_state* state) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 static struct argp_option options_sdd[] = {
-  {"merged", 'm', 0, 0, "Input is a merged HR Bayer array" },
+  {"hires-exr", 'x', "WxH", 0, "Input is an interlaced high-resolution EXR array with the CFA geometry of WxH" },
   { 0 }
 };
 
@@ -147,7 +145,7 @@ static struct argp argp_sdd = {
   argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" sdd") + 1); \
   if (!argv[0]) argp_failure(state, 1, ENOMEM, 0); \
   sprintf(argv[0], "%s sdd", state->name); \
-  args.merged_cfa = false; \
+  args.interlaced_cfa = false; \
   argp_parse(&argp_sdd, argc, argv, ARGP_IN_ORDER, &argc, &args); \
   free(argv[0]); \
   argv[0] = argv0; \

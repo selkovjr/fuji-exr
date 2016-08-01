@@ -72,7 +72,7 @@ void run_sdd (struct argp_state* state) {
   ushort *u_data_out;
   bool landscape = false;
 
-  if (args.merged_cfa) {
+  if (args.interlaced_cfa) {
     printf("geometry: %s\n", args.geometry);
     printf("red input file: %s\n", args.input_file_0);
     printf("green input file: %s\n", args.input_file_1);
@@ -189,7 +189,7 @@ void run_sdd (struct argp_state* state) {
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
     fprintf(stderr, "%6.3f seconds to merge input color planes\n", elapsed);
     // write_tiff_rgb_f32("input-merged.tif", data_in, width, width);
-  } // merged CFA on input
+  } // interlaced CFA on input
 
   else { // Raw EXR Bayer frames
     start_time = clock();
