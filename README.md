@@ -1,6 +1,6 @@
 Fuji EXR filter layout:
 
-<img src="doc/image/fuji-cfm.png" width="405" height="357" />
+<img src="doc/images/fuji-cfm.png" width="405" height="357" />
 
 
 ## ABOUT
@@ -71,13 +71,13 @@ function:
 His algorithm uses the Limited-memory BFGS-Bounded (L-BFGS-B) constrained
 optimiser, which is reported to work well on this surface (illustrated as a
 function of **a** and **b**, with **c** and **d** fixed at 0):
-<img src="doc/image/norm-rg-blueman.png" />
+<img src="doc/images/norm-rg-blueman.png" />
 
 When I use L-BFGS-B on my camera's error function (the only one I mapped out so
 far, at _F = 6.8mm_), it gets trapped in false minima which pretty much block
 all reasonable approaches to the optimum:
 
-<img src="doc/image/norm-rg-0.04.png" />
+<img src="doc/images/norm-rg-0.04.png" />
 
 
 ## CAMERAS
