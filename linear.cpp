@@ -71,7 +71,7 @@ void run_linear (struct argp_state* state) {
   /* TIFF 16-bit grayscale -> float input */
   start_time = clock();
   {
-    if (args.hr) {
+    if (args.interlaced_cfa) {
       cerr << grey << "input file 0: " << white << args.input_file_0 << reset << endl;
       if (NULL == (frame0 = read_tiff_gray16_f32(args.input_file_0, &nx0, &ny0, &description))) {
         cerr << on_red << "error while reading from " << args.input_file_0 << reset << endl;
@@ -130,7 +130,7 @@ void run_linear (struct argp_state* state) {
     exit(EXIT_FAILURE);
   }
 
-  if (args.hr) {
+  if (args.interlaced_cfa) {
     start_time = clock();
     for (i = 0; i < (unsigned long)cfaWidth * cfaHeight; i++) {
       if (landscape) {
@@ -199,7 +199,7 @@ void run_linear (struct argp_state* state) {
     end_time = clock();
     elapsed = double(end_time - start_time) / CLOCKS_PER_SEC;
     cerr << yellow << setw(7) << setprecision(2) << elapsed << "s" << white << " interpolating" << reset << endl;
-  } // HR
+  } // Interlaced HR Bayer
 
   else { // interpolate one BGGR subframe
     start_time = clock();

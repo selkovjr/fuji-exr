@@ -92,12 +92,12 @@ _None of these tools can be used to fix highlight clipping_
 
 ### For super-resolution mode
 
-[fuji-exr-ssd](https://github.com/selkovjr/fuji-exr-decoders/tree/master/fuji-exr-ssd)
+`fuji-exr ssdd`
 
 Typical application:
 ```
 dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
-fuji-exr-ssd raw_[01].tiff out.tiff # this takes a couple minutes
+fuji-exr sssd -x raw_[01].tiff out.tiff
 ```
 The output image requires additional denoising and color correction.
 

@@ -4,13 +4,13 @@
 // ## linear command parser
 //
 struct arg_linear {
-  bool hr;
+  bool interlaced_cfa;
   char* input_file_0;
   char* input_file_1;
   char* output_file;
 };
 
-static char args_doc_linear[] = "[bayer.tiff | -h bayer_0.tiff bayer_1.tiff] output.tiff";
+static char args_doc_linear[] = "[bayer.tiff | -x bayer_0.tiff bayer_1.tiff] output.tiff";
 
 static char doc_linear[] =
 "\n"
@@ -56,8 +56,8 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
   assert( arguments );
 
   switch(key) {
-    case 'h':
-      arguments->hr = true;
+    case 'x':
+      arguments->interlaced_cfa = true;
       break;
 
     case ARGP_KEY_NO_ARGS:
@@ -69,7 +69,7 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
       nonopt = &state->argv[state->next];
       state->next = state->argc; // we're done
 
-      if (arguments->hr) {
+      if (arguments->interlaced_cfa) {
         arguments->input_file_0 = arg;
         arguments->input_file_1 = nonopt[0];
         arguments->output_file = nonopt[1];
@@ -81,7 +81,7 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
       break;
 
     case ARGP_KEY_END:
-      if (arguments->hr) {
+      if (arguments->interlaced_cfa) {
         if (state->arg_num < 3) {
           argp_error(state, "Not enough arguments");
         }
@@ -109,7 +109,7 @@ static error_t parse_linear_command(int key, char* arg, struct argp_state* state
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 static struct argp_option options_linear[] = {
-  {"high-res", 'h', 0, 0, "merge input frames into a tilted HR Bayer array" },
+  {"highres-exr", 'x', 0, 0, "merge input frames into a tilted HR Bayer array" },
   { 0 }
 };
 
@@ -129,7 +129,7 @@ static struct argp argp_linear = {
   argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" linear") + 1); \
   if (!argv[0]) argp_failure(state, 1, ENOMEM, 0); \
   sprintf(argv[0], "%s linear", state->name); \
-  args.hr = false; \
+  args.interlaced_cfa = false; \
   argp_parse(&argp_linear, argc, argv, ARGP_IN_ORDER, &argc, &args); \
   free(argv[0]); \
   argv[0] = argv0; \

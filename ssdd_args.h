@@ -1,9 +1,9 @@
 #include <argp.h>
 
 // ----------------------------------------------------------------------------------
-// ## SDD command parser
+// ## SSDD command parser
 //
-struct arg_sdd {
+struct arg_ssdd {
   bool interlaced_cfa;
   char* geometry;
   char* input_file_0;
@@ -12,9 +12,9 @@ struct arg_sdd {
   char* output_file;
 };
 
-static char args_doc_sdd[] = "[-x WxH r.tiff g.tiff b.tiff | bayer_0.tiff bayer_1.tiff] output.tiff";
+static char args_doc_ssdd[] = "[-x WxH r.tiff g.tiff b.tiff | bayer_0.tiff bayer_1.tiff] output.tiff";
 
-static char doc_sdd[] =
+static char doc_ssdd[] =
 "\n"
 "Self-similarity-driven debayering\n"
 "\n"
@@ -63,8 +63,8 @@ static char doc_sdd[] =
 "\n"
 ;
 
-static error_t parse_sdd_command(int key, char* arg, struct argp_state* state) {
-  struct arg_sdd* arguments = (struct arg_sdd*)state->input;
+static error_t parse_ssdd_command(int key, char* arg, struct argp_state* state) {
+  struct arg_ssdd* arguments = (struct arg_ssdd*)state->input;
   char **nonopt;
 
   assert( arguments );
@@ -124,29 +124,29 @@ static error_t parse_sdd_command(int key, char* arg, struct argp_state* state) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-static struct argp_option options_sdd[] = {
-  {"hires-exr", 'x', "WxH", 0, "Input is an interlaced high-resolution EXR array with the CFA geometry of WxH" },
+static struct argp_option options_ssdd[] = {
+  {"highres-exr", 'x', "WxH", 0, "Input is an interlaced high-resolution EXR array with the CFA geometry of WxH" },
   { 0 }
 };
 
-static struct argp argp_sdd = {
-  options_sdd,
-  parse_sdd_command,
-  args_doc_sdd,
-  doc_sdd
+static struct argp argp_ssdd = {
+  options_ssdd,
+  parse_ssdd_command,
+  args_doc_ssdd,
+  doc_ssdd
 };
 #pragma GCC diagnostic pop
 
-#define PARSE_ARGS_SDD \
-  struct arg_sdd args; \
+#define PARSE_ARGS_SSDD \
+  struct arg_ssdd args; \
   int    argc = state->argc - state->next + 1; \
   char** argv = &state->argv[state->next - 1]; \
   char*  argv0 =  argv[0]; \
-  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" sdd") + 1); \
+  argv[0] = (char *)malloc(strlen((char *)(state->name)) + strlen(" ssdd") + 1); \
   if (!argv[0]) argp_failure(state, 1, ENOMEM, 0); \
-  sprintf(argv[0], "%s sdd", state->name); \
+  sprintf(argv[0], "%s ssdd", state->name); \
   args.interlaced_cfa = false; \
-  argp_parse(&argp_sdd, argc, argv, ARGP_IN_ORDER, &argc, &args); \
+  argp_parse(&argp_ssdd, argc, argv, ARGP_IN_ORDER, &argc, &args); \
   free(argv[0]); \
   argv[0] = argv0; \
   state->next += argc - 1;

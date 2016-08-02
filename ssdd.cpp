@@ -39,7 +39,7 @@
 #include <iostream>
 #include <iomanip>
 
-#include "sdd_args.h"
+#include "ssdd_args.h"
 #include "termcolor.h"
 #include "cfa_mask.h"
 #include "libdemosaic.h"
@@ -53,8 +53,8 @@ using namespace termcolor;
 #define DIAG 1.4142136
 #define DIAG12 2.236 // sqrt(5)
 
-void run_sdd (struct argp_state* state) {
-  PARSE_ARGS_SDD;
+void run_ssdd (struct argp_state* state) {
+  PARSE_ARGS_SSDD;
 
   clock_t start_time, end_time;
   double elapsed;
@@ -297,7 +297,7 @@ void run_sdd (struct argp_state* state) {
 
   /* process */
   start_time = clock();
-  sdd_demosaic_chain (
+  ssdd_demosaic_chain (
     data_in,
     data_in + width * width,
     data_in + 2 * width * width,
@@ -429,5 +429,5 @@ void run_sdd (struct argp_state* state) {
 
   exit(EXIT_SUCCESS);
 
-} // run_sdd()
+} // run_ssdd()
 

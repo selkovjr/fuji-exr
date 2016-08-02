@@ -992,7 +992,7 @@ void chromatic_median(
  *
  * Output <- u;
  *
- * Sketch of the SDD algorithm:
+ * Sketch of the SSDD algorithm:
  *
  *  * For u the red, green or blue channel, let Ωu be the domain of u.
  *
@@ -1000,7 +1000,7 @@ void chromatic_median(
  *  on an initial color estimate obtained by a standard demosaicking algorithm.
  *
  *  * To reduce artefacts caused by the initial estimate, a coarse-to-fine
- *  strategy is used by iteratively applying SDD-NLM with a decreasing
+ *  strategy is used by iteratively applying SSDD-NLM with a decreasing
  *  sequence of h together with a color regularization step (median filtering
  *  on chromaticity components).
  *
@@ -1011,7 +1011,7 @@ void chromatic_median(
  */
 
 
-void sdd_demosaic_chain (
+void ssdd_demosaic_chain (
   float *ired,
   float *igreen,
   float *iblue,

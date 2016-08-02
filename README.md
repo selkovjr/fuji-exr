@@ -10,7 +10,7 @@ after [www.ipol.im/pub/art/2011/bcms-ssdd/](http://www.ipol.im/pub/art/2011/bcms
 
 ## ABOUT
 
-Portions of this software (supporting the `sdd` subcommand) were originally
+Portions of this software (supporting the `ssdd` subcommand) were originally
 written by A. Buades <toni.buades@uib.es> with contributions from Nicolas
 Limare.  Adapted to Fuji EXR by Gene Selkov <selkovjr@gmail.com>.
 
@@ -44,7 +44,7 @@ Simply use the provided makefile, with the command `make`.
 
 ```
 dcraw -v -w -d -s all -6 -T -b 0.7 raw.RAF
-./fuji-exr sdd raw_[01].tiff out.tiff
+./fuji-exr ssdd raw_[01].tiff out.tiff
 ```
 
 * `raw.RAF`: Fuji raw image, shot in EXR high-res mode, or in P-mode
@@ -61,5 +61,5 @@ fuji-exr linear 160206_172303_* interpolated.tiff
 convert interpolated.tiff -separate interpolated-%d.tiff
 radial-distort 1.002002 -0.006203 0.008245 -0.003979 interpolated-0.tiff interpolated-distorted-0.tiff
 radial-distort 1.000725 -0.000260 -0.001201 0.000909 interpolated-2.tiff interpolated-distorted-2.tiff
-fuji-exr sdd -m 3264x2464 interpolated-distorted-0.tiff interpolated-1.tiff interpolated-distorted-2.tiff out.tiff
+fuji-exr ssdd -x 3264x2464 interpolated-distorted-0.tiff interpolated-1.tiff interpolated-distorted-2.tiff out.tiff
 ```
